@@ -36,7 +36,8 @@ type resolved struct {
 	TokenSource    string
 }
 
-// configError names the attribute a problem belongs to. Its message never contains a token value.
+// configError names the attribute a problem belongs to. Attribute is empty when the problem comes from an environment
+// variable, which has no attribute to point at. Its message never contains a token value.
 type configError struct {
 	Attribute string
 	Summary   string
@@ -70,7 +71,7 @@ func resolve(cfg rawConfig, getenv func(string) string, readFile func(string) ([
 	case blank(cfg.Token) != "":
 		out.Token, out.TokenSource = strings.TrimSpace(cfg.Token), "token in the provider configuration"
 	case blank(cfg.TokenFile) != "":
-		tok, err := readTokenFile("token_file", cfg.TokenFile, readFile)
+		tok, err := readTokenFile("token_file", SourceTokenFile, cfg.TokenFile, readFile)
 		if err != nil {
 			return out, err
 		}
@@ -78,7 +79,7 @@ func resolve(cfg rawConfig, getenv func(string) string, readFile func(string) ([
 	case blank(getenv(EnvToken)) != "":
 		out.Token, out.TokenSource = strings.TrimSpace(getenv(EnvToken)), SourceEnv+" "+EnvToken
 	case blank(getenv(EnvTokenFile)) != "":
-		tok, err := readTokenFile("token_file", getenv(EnvTokenFile), readFile)
+		tok, err := readTokenFile("", SourceEnv+" "+EnvTokenFile, getenv(EnvTokenFile), readFile)
 		if err != nil {
 			return out, err
 		}
@@ -93,8 +94,9 @@ func resolve(cfg rawConfig, getenv func(string) string, readFile func(string) ([
 func blank(s string) string { return strings.TrimSpace(s) }
 
 // readTokenFile reads a token from path. Surrounding whitespace, including the final newline, is removed.
-// The error mentions the path and the reason but never file contents.
-func readTokenFile(attr, path string, readFile func(string) ([]byte, error)) (string, *configError) {
+// attr is the attribute to report, or empty for an environment source; source says where path came from.
+// The error mentions the path, the source and the reason but never file contents.
+func readTokenFile(attr, source, path string, readFile func(string) ([]byte, error)) (string, *configError) {
 	path = strings.TrimSpace(path)
 	data, err := readFile(path)
 	if err != nil {
@@ -105,14 +107,14 @@ func readTokenFile(attr, path string, readFile func(string) ([]byte, error)) (st
 		case errors.Is(err, os.ErrPermission):
 			reason = "permission denied"
 		}
-		return "", &configError{attr, "Cannot read Ledger token file", fmt.Sprintf("%q: %s.", path, reason)}
+		return "", &configError{attr, "Cannot read Ledger token file", fmt.Sprintf("%q (from %s): %s.", path, source, reason)}
 	}
 	tok := strings.TrimSpace(string(data))
 	if tok == "" {
-		return "", &configError{attr, "Empty Ledger token file", fmt.Sprintf("%q contains no token.", path)}
+		return "", &configError{attr, "Empty Ledger token file", fmt.Sprintf("%q (from %s) contains no token.", path, source)}
 	}
 	if strings.ContainsAny(tok, "\r\n") {
-		return "", &configError{attr, "Invalid Ledger token file", fmt.Sprintf("%q must contain a single line.", path)}
+		return "", &configError{attr, "Invalid Ledger token file", fmt.Sprintf("%q (from %s) must contain a single line.", path, source)}
 	}
 	return tok, nil
 }

@@ -123,8 +123,8 @@ jobs:
         uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: go.mod
-      # tfplugindocs runs a Terraform binary to read the provider schema. The version is pinned and the binary is
-      # downloaded from releases.hashicorp.com by hc-install (checksum and signature verified by that library).
+      # tfplugindocs runs a Terraform CLI to read the provider schema. Its version is pinned with --tf-version in
+      # main.go (ADR-0001 section 10), so the job never uses the terraform on PATH; hc-install downloads it.
       - name: Regenerate and validate docs, fail on drift
         run: make docs-check
 
