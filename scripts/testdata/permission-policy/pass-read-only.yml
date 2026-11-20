@@ -1,0 +1,12 @@
+# Positive fixture: read-only scopes in block and flow style must pass the policy.
+# Checked by scripts/check-workflow-permissions.sh --self-test.
+name: fixture
+on: push
+permissions:
+  contents: read
+jobs:
+  job:
+    runs-on: ubuntu-latest
+    permissions: {contents: read}
+    steps:
+      - run: echo fixture
