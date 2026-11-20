@@ -1,12 +1,12 @@
 #!/bin/sh
-# Permission policy for GitHub workflow files (ADR-0007, rule 5). Run by `make workflow-policy`,
+# Permission policy for GitHub workflow files (ADR-0001 section 8). Run by `make workflow-policy`,
 # which the workflow-lint job in .github/workflows/ci.yml also runs.
 #
 #   scripts/check-workflow-permissions.sh [DIR]   check every *.yml and *.yaml in DIR (default .github/workflows)
 #   scripts/check-workflow-permissions.sh --self-test
 #                                                 check that the negative fixtures are caught and the positive one passes
 #
-# This is a text check, not a YAML parser (ADR-0007, Consequences). It recognises a write scope as a value after a
+# This is a text check, not a YAML parser (ADR-0001, Consequences). It recognises a write scope as a value after a
 # colon in block, flow ({contents: write}) or quoted ("write") form, and write-all.
 set -eu
 

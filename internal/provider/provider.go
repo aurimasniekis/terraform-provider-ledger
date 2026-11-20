@@ -116,7 +116,11 @@ func (p *ledgerProvider) Configure(ctx context.Context, req provider.ConfigureRe
 		TokenFile: model.TokenFile.ValueString(),
 	}, getenv, readFile)
 	if cerr != nil {
-		resp.Diagnostics.AddAttributeError(path.Root(cerr.Attribute), cerr.Summary, cerr.Detail)
+		if cerr.Attribute == "" {
+			resp.Diagnostics.AddError(cerr.Summary, cerr.Detail)
+		} else {
+			resp.Diagnostics.AddAttributeError(path.Root(cerr.Attribute), cerr.Summary, cerr.Detail)
+		}
 		return
 	}
 

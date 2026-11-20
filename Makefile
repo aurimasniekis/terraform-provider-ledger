@@ -31,11 +31,11 @@ build: ## build the provider binary, pure Go (CGO_ENABLED=0)
 	CGO_ENABLED=0 $(GO) build -trimpath -ldflags "$(LDFLAGS)" -o $(BINARY) .
 	@$(GO) version -m $(BINARY) | grep -q 'CGO_ENABLED=0' || { echo "$(BINARY) was not built with CGO_ENABLED=0"; exit 1; }
 
-docs: ## regenerate docs/ with tfplugindocs (needs a terraform binary on PATH, or network for hc-install)
+docs: ## regenerate docs/ with tfplugindocs; downloads the pinned Terraform CLI (network needed when not cached)
 	$(GO) generate ./...
 
 docs-check: docs ## regenerate and validate docs, fail when docs/ differs from what is committed
-	$(GO) tool tfplugindocs validate --provider-name ledger
+	$(GO) tool tfplugindocs validate --provider-name ledger --tf-version 1.11.4 # same pin as main.go (ADR-0001 section 10)
 	@if [ -n "$$(git status --porcelain -- docs ':!docs/decisions')" ]; then echo "docs/ is out of date; run 'make docs' and commit the result:"; git status --short -- docs ':!docs/decisions'; git diff -- docs ':!docs/decisions'; exit 1; fi
 
 workflow-policy: ## workflow permission policy: the negative fixtures must be rejected, then .github/workflows must pass

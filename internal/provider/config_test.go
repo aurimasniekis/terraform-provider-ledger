@@ -111,6 +111,7 @@ func TestResolveErrors(t *testing.T) {
 		{"unusable token_file does not fall through", rawConfig{Endpoint: "https://x.example", TokenFile: "/nope"}, map[string]string{EnvToken: "env-token"}, "token_file", "/nope"},
 		{"empty token file", rawConfig{Endpoint: "https://x.example", TokenFile: "/empty"}, nil, "token_file", "contains no token"},
 		{"multi-line token file", rawConfig{Endpoint: "https://x.example", TokenFile: "/multi"}, nil, "token_file", "single line"},
+		{"unusable LEDGER_TOKEN_FILE is reported as its variable, not an attribute", rawConfig{Endpoint: "https://x.example"}, map[string]string{EnvTokenFile: "/nope"}, "", EnvTokenFile},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -138,7 +139,7 @@ func TestResolveNeverEchoesFileContents(t *testing.T) {
 }
 
 func TestReadTokenFileReadError(t *testing.T) {
-	_, err := readTokenFile("token_file", "/x", func(string) ([]byte, error) { return nil, errors.New("boom with /secret/detail") })
+	_, err := readTokenFile("token_file", SourceTokenFile, "/x", func(string) ([]byte, error) { return nil, errors.New("boom with /secret/detail") })
 	if err == nil || strings.Contains(err.Error(), "boom") {
 		t.Errorf("unexpected error text: %v", err)
 	}

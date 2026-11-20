@@ -14,7 +14,8 @@ import (
 // version is set at release time with -ldflags "-X main.version=...".
 var version = "dev"
 
-//go:generate go tool tfplugindocs generate --provider-name ledger
+// Docs are generated with the Terraform CLI pinned here (ADR-0001 section 10), not whichever terraform is on PATH.
+//go:generate go tool tfplugindocs generate --provider-name ledger --tf-version 1.11.4
 
 func main() {
 	var debug bool

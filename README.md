@@ -16,8 +16,12 @@ provider "ledger" {
 ```
 
 Explicit configuration wins over the environment. Endpoint: `endpoint`, then `LEDGER_ENDPOINT`. Token: `token`, then
-`token_file`, then `LEDGER_TOKEN`, then `LEDGER_TOKEN_FILE`. The token is sensitive and is never logged. See
-[docs/index.md](docs/index.md) for the generated reference.
+`token_file`, then `LEDGER_TOKEN`, then `LEDGER_TOKEN_FILE`. The token is marked sensitive and the provider does not
+print it in diagnostics. See [docs/index.md](docs/index.md) for the generated reference.
+
+> **Debugging warning:** setting `TF_LOG_SDK_PROTO_DATA_DIR` makes terraform-plugin-go write the raw provider
+> configuration to that directory, and that includes a `token` set in the provider block. Leave the variable unset
+> unless you are debugging, do not share those files, and prefer `token_file` or `LEDGER_TOKEN_FILE` for the token.
 
 ## Development
 
