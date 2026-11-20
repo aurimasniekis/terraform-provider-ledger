@@ -1,0 +1,160 @@
+# Validation for pushes and pull requests. Release and publishing workflows are separate and not part of this file.
+# Every action is pinned by commit SHA; the version in the trailing comment is the release it names.
+name: ci
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+# Read-only by default. No job in this file requests a write scope.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  # Tool versions are pinned here and changed deliberately (see docs/decisions/0001).
+  GOLANGCI_LINT_VERSION: v2.15.0
+  GOVULNCHECK_VERSION: v1.10.0
+  ACTIONLINT_VERSION: v1.7.12
+  ZIZMOR_VERSION: 1.32.0
+
+jobs:
+  workflow-lint:
+    name: workflow lint (actionlint, zizmor)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Go from go.mod
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version-file: go.mod
+      - name: Install actionlint
+        run: |
+          GOBIN="$RUNNER_TEMP/tools" go install "github.com/rhysd/actionlint/cmd/actionlint@${ACTIONLINT_VERSION}"
+          echo "$RUNNER_TEMP/tools" >> "$GITHUB_PATH"
+      - name: actionlint
+        run: actionlint
+      - name: Install zizmor
+        run: |
+          python3 -m venv "$RUNNER_TEMP/zizmor"
+          "$RUNNER_TEMP/zizmor/bin/pip" install --only-binary :all: "zizmor==${ZIZMOR_VERSION}"
+          echo "$RUNNER_TEMP/zizmor/bin" >> "$GITHUB_PATH"
+      # --offline: static audits only (unpinned uses, permissions, injection). No API token is passed.
+      - name: zizmor (unpinned actions and permissions)
+        run: zizmor --offline --min-severity low .github/workflows
+      # Negative fixtures run first, so a broken pattern cannot pass the real workflows silently.
+      - name: Permission policy (read-only scopes only)
+        run: make workflow-policy
+
+  go-format-lint:
+    name: go format and lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Go from go.mod
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version-file: go.mod
+      - name: Install golangci-lint
+        run: |
+          GOBIN="$RUNNER_TEMP/tools" go install "github.com/golangci/golangci-lint/v2/cmd/golangci-lint@${GOLANGCI_LINT_VERSION}"
+          echo "$RUNNER_TEMP/tools" >> "$GITHUB_PATH"
+      - name: gofmt -s
+        run: make fmt-check
+      - name: go vet
+        run: make vet
+      - name: golangci-lint
+        run: make lint
+
+  go-test:
+    name: go test (race)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Go from go.mod
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version-file: go.mod
+      - name: Offline unit tests with the race detector
+        run: make test
+
+  go-build:
+    name: go build (pure Go)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Go from go.mod
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version-file: go.mod
+      - name: Build the provider with CGO_ENABLED=0
+        run: make build
+
+  docs:
+    name: provider docs are up to date (tfplugindocs)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Go from go.mod
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version-file: go.mod
+      # tfplugindocs runs a Terraform binary to read the provider schema. The version is pinned and the binary is
+      # downloaded from releases.hashicorp.com by hc-install (checksum and signature verified by that library).
+      - name: Regenerate and validate docs, fail on drift
+        run: make docs-check
+
+  govulncheck:
+    name: govulncheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Go from go.mod
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version-file: go.mod
+      - name: Install govulncheck
+        run: |
+          GOBIN="$RUNNER_TEMP/tools" go install "golang.org/x/vuln/cmd/govulncheck@${GOVULNCHECK_VERSION}"
+          echo "$RUNNER_TEMP/tools" >> "$GITHUB_PATH"
+      - name: govulncheck ./...
+        run: govulncheck ./...
+
+  dependency-review:
+    name: dependency review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Review dependency changes in the pull request
+        uses: actions/dependency-review-action@bbc44d14a204704ccc493733616cd1e93a0321ec # v5.0.1
+        with:
+          fail-on-severity: moderate

@@ -1,0 +1,12 @@
+# Keeps the commit-SHA pins in ci.yml current. Pins are updated as pull requests, never automatically merged.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+  # Frontend dependencies (web/pnpm-lock.yaml). Proposed as pull requests; CI must pass before a person merges.
+  - package-ecosystem: npm
+    directory: /web
+    schedule:
+      interval: weekly

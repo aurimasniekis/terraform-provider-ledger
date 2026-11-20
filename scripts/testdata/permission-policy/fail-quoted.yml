@@ -1,0 +1,13 @@
+# Negative fixture (quoted): job-level write scope with a quoted value
+# Checked by scripts/check-workflow-permissions.sh --self-test, which must reject this file.
+name: fixture
+on: push
+permissions:
+  contents: read
+jobs:
+  job:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: "write"
+    steps:
+      - run: echo fixture

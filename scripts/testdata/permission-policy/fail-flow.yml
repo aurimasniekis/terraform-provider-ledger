@@ -1,0 +1,12 @@
+# Negative fixture (flow): job-level write scope in flow style
+# Checked by scripts/check-workflow-permissions.sh --self-test, which must reject this file.
+name: fixture
+on: push
+permissions:
+  contents: read
+jobs:
+  job:
+    runs-on: ubuntu-latest
+    permissions: {contents: write}
+    steps:
+      - run: echo fixture

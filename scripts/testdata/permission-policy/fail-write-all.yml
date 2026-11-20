@@ -1,0 +1,12 @@
+# Negative fixture (write-all): job-level write-all
+# Checked by scripts/check-workflow-permissions.sh --self-test, which must reject this file.
+name: fixture
+on: push
+permissions:
+  contents: read
+jobs:
+  job:
+    runs-on: ubuntu-latest
+    permissions: write-all
+    steps:
+      - run: echo fixture
