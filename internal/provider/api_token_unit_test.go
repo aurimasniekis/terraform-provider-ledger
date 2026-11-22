@@ -465,6 +465,9 @@ func TestAPITokenExpiredWarnsAndKeepsSecret(t *testing.T) {
 	if len(warnings) != 1 || warnings[0].Summary() != "API token expired" {
 		t.Fatalf("an expired token must warn once with the summary \"API token expired\", got %v", resp.Diagnostics)
 	}
+	if strings.Contains(warnings[0].Detail(), secret) {
+		t.Fatal("the expired-token warning must not contain the token secret")
+	}
 	var got apiTokenModel
 	if d := resp.State.Get(ctx, &got); d.HasError() {
 		t.Fatalf("reading the state: %v", d)
@@ -492,5 +495,4 @@ func TestAPITokenReadNeedsTokensReadHint(t *testing.T) {
 			{PreConfig: func() { t.Setenv("LEDGER_TOKEN", "unit-token") }, Config: tokenCfg("r", grantsCfg)},
 		},
 	})
-	_ = f
 }
