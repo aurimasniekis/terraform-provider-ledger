@@ -16,5 +16,6 @@ Significant tradeoffs are recorded here as numbered ADRs. Start from [0000-templ
 - [ADR-0012: Read-only report data sources](0012-read-only-report-data-sources.md)
 - [ADR-0013: Read-only bank data sources](0013-bank-data-sources.md)
 - [ADR-0014: Users and write-only passwords](0014-users-and-passwords.md)
+- [ADR-0015: API tokens: the one secret kept in state](0015-api-tokens.md)
 
 An accepted ADR is not rewritten. Supersede it with a new ADR and link the two.
