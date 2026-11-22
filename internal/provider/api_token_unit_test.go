@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"regexp"
 	"strings"
 	"sync"
@@ -15,7 +16,10 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 	fwresource "github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
+	"github.com/hashicorp/terraform-plugin-go/tftypes"
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 
@@ -49,13 +53,17 @@ func (f *fakeTokens) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		send(status, map[string]any{"code": code, "message": code + " by the fake", "request_id": "R"})
 	}
 	bearer := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
-	if bearer != "unit-token" && bearer != "limited-token" {
+	if bearer != "unit-token" && bearer != "limited-token" && bearer != "readless-token" {
 		http.Error(w, "no", http.StatusUnauthorized)
 		return
 	}
 	now := time.Now().UTC().Format(time.RFC3339)
 	p := strings.Trim(strings.TrimPrefix(r.URL.Path, "/api/v1"), "/")
 	parts := strings.Split(p, "/")
+	if bearer == "readless-token" && parts[0] == "tokens" && r.Method == http.MethodGet {
+		fail(403, "forbidden") // a token without the tokens:read grant
+		return
+	}
 	switch {
 	case p == "auth/tokens" && r.Method == http.MethodPost:
 		if bearer != "unit-token" {
@@ -396,4 +404,93 @@ data "ledger_api_token" "live" {
 			)},
 		},
 	})
+}
+
+// fakeTokenState builds the state the resource holds: every attribute null except the ones given.
+func fakeTokenState(ctx context.Context, t *testing.T, s schema.Schema, set map[string]tftypes.Value) tfsdk.State {
+	t.Helper()
+	typ, ok := s.Type().TerraformType(ctx).(tftypes.Object)
+	if !ok {
+		t.Fatal("the resource schema is not an object")
+	}
+	vals := map[string]tftypes.Value{}
+	for name, at := range typ.AttributeTypes {
+		vals[name] = tftypes.NewValue(at, nil)
+	}
+	for name, v := range set {
+		vals[name] = v
+	}
+	return tfsdk.State{Schema: s, Raw: tftypes.NewValue(typ, vals)}
+}
+
+// An expired token stays in state, with its secret, and every refresh warns about it (the dead secret must not be silent).
+func TestAPITokenExpiredWarnsAndKeepsSecret(t *testing.T) {
+	f, _ := newFakeTokens(t)
+	ctx := context.Background()
+	c, err := client.New(client.Config{Endpoint: os.Getenv("LEDGER_ENDPOINT"), Token: "unit-token"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	created, err := c.CreateAPIToken(ctx, client.NewAPIToken{Name: "soon-expired", Grants: []string{"commitments:read"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	id, secret := created.Token.ID, created.Secret.Reveal()
+	var rs fwresource.SchemaResponse
+	NewAPITokenResource().Schema(ctx, fwresource.SchemaRequest{}, &rs)
+	st := fakeTokenState(ctx, t, rs.Schema, map[string]tftypes.Value{
+		"id":     tftypes.NewValue(tftypes.String, id),
+		"status": tftypes.NewValue(tftypes.String, client.TokenActive),
+		"secret": tftypes.NewValue(tftypes.String, secret),
+	})
+	r := &apiTokenResource{client: c}
+	read := func() fwresource.ReadResponse {
+		resp := fwresource.ReadResponse{State: st}
+		r.Read(ctx, fwresource.ReadRequest{State: st}, &resp)
+		return resp
+	}
+
+	if resp := read(); resp.Diagnostics.HasError() || resp.Diagnostics.WarningsCount() != 0 {
+		t.Fatalf("an active token must read without diagnostics, got %v", resp.Diagnostics)
+	}
+
+	f.mu.Lock()
+	f.tok[id].Status = client.TokenExpired // Ledger flips the token to expired
+	f.mu.Unlock()
+	resp := read()
+	if resp.Diagnostics.HasError() {
+		t.Fatalf("an expired token must not be an error, got %v", resp.Diagnostics)
+	}
+	warnings := resp.Diagnostics.Warnings()
+	if len(warnings) != 1 || warnings[0].Summary() != "API token expired" {
+		t.Fatalf("an expired token must warn once with the summary \"API token expired\", got %v", resp.Diagnostics)
+	}
+	var got apiTokenModel
+	if d := resp.State.Get(ctx, &got); d.HasError() {
+		t.Fatalf("reading the state: %v", d)
+	}
+	if got.Status.ValueString() != client.TokenExpired || got.Secret.ValueString() != secret {
+		t.Fatalf("an expired token stays in state with its secret: status %q, secret kept %t", got.Status.ValueString(), got.Secret.ValueString() == secret)
+	}
+}
+
+// A token without tokens:read is refused on refresh and by both data sources: the hint names the grant.
+func TestAPITokenReadNeedsTokensReadHint(t *testing.T) {
+	f, factories := newFakeTokens(t)
+	f.tok["01JD3Y4C8V9M2Q7W5R6T0XZ900"] = &client.APIToken{ID: "01JD3Y4C8V9M2Q7W5R6T0XZ900", Name: "seen", OwnerID: "01JD3Y4C8V9M2Q7W5R6T0XZ0W1", Status: client.TokenActive, CreatedAt: time.Now().UTC().Format(time.RFC3339)}
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			{Config: tokenCfg("r", grantsCfg)},
+			{PreConfig: func() { t.Setenv("LEDGER_TOKEN", "readless-token") }, Config: tokenCfg("r", grantsCfg), PlanOnly: true,
+				ExpectError: regexp.MustCompile(`(?s)Reading the API token failed.*tokens:read`)},
+			{PreConfig: func() { t.Setenv("LEDGER_TOKEN", "readless-token") }, Config: "data \"ledger_api_token\" \"d\" {\n  id = \"01JD3Y4C8V9M2Q7W5R6T0XZ900\"\n}\n",
+				ExpectError: regexp.MustCompile(`(?s)Reading the API token failed.*tokens:read`)},
+			{Config: "data \"ledger_api_tokens\" \"l\" {}\n", PreConfig: func() { t.Setenv("LEDGER_TOKEN", "readless-token") },
+				ExpectError: regexp.MustCompile(`(?s)Listing API tokens failed.*tokens:read`)},
+			// Back with the root token, so the test's own cleanup can revoke the token.
+			{PreConfig: func() { t.Setenv("LEDGER_TOKEN", "unit-token") }, Config: tokenCfg("r", grantsCfg)},
+		},
+	})
+	_ = f
 }

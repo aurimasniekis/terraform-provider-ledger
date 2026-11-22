@@ -31,18 +31,18 @@ the session-only twins (`/auth/tokens` list, get and delete) are not used: the p
    provider logs request or response bodies. Unit tests check the data sources for a secret attribute and the state for a match with the
    issued token only in `secret`.
 4. **Replace on change.** A token cannot be changed (the API has no update), so `name`, `grants`, `root` and `expires_at` all replace.
-   Replacement destroys first (revoking the old token and, by Ledger's cascade, the tokens made through it), then creates. `Update` is a
+   Replacement destroys first (revoking the old token and, by Ledger's cascade, the tokens made through it), then creates. For a zero-gap rotation, set `lifecycle { create_before_destroy = true }`, so the new token is created before the old one is revoked; without it, a create that fails (for example, because the provider does not run with the root token) leaves the old token revoked and nothing in its place. `Update` is a
    bug guard that fails.
 5. **Grants or root.** `grants` (a set, at least one) or `root = true`, not both, checked at validation; the grant vocabulary is
    Ledger's (the `ledger_grants` data source) and is not copied into the provider, so Ledger refuses an unknown grant or one the root
    token does not hold. `root` defaults to `false`; a root token's own grants are empty and read back as null.
 6. **Expiry.** `expires_at` (RFC 3339) is kept as written. Ledger may silently cap it at the creating token's expiry, so the value that
    applies is the computed `effective_expires_at`; this avoids an inconsistent-result error for a capped token. A token that expires stays in
-   state with status `expired`: rotate it by changing an argument or by `terraform apply -replace`.
+   state with status `expired`: rotate it by changing an argument or by `terraform apply -replace`. Each refresh warns that the token has expired, so the dead secret is not silent.
 7. **Drift.** Read uses `GET /tokens/{id}` (`tokens:read`). A token that is gone or revoked outside Terraform is removed from state, so the
    next apply creates a new one (the old secret no longer works).
 8. **Destroy revokes** (`DELETE /tokens/{id}`); a token that is already gone is a success. The hints for `forbidden` on create and
-   `root_token_required` on revoke name the root-token prerequisite.
+   `root_token_required` on revoke name the root-token prerequisite; a 403 on a read (the resource's refresh and both data sources) names the `tokens:read` grant.
 9. **No import.** An imported token would have no secret, so import is not offered; the data sources read tokens that exist.
 10. **Prerequisite and tests.** The root-token prerequisite is documented on the resource and the data sources. Offline tests run against
     a fake that refuses non-root creation; acceptance tests run against the pinned local Ledger with the bootstrap root token, prove the

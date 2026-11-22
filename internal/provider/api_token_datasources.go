@@ -76,7 +76,7 @@ func (d *apiTokenDataSource) Read(ctx context.Context, req datasource.ReadReques
 			resp.Diagnostics.AddAttributeError(path.Root("id"), "No such API token", "Ledger has no API token with that identifier.")
 			return
 		}
-		resp.Diagnostics.AddError("Reading the API token failed", err.Error())
+		resp.Diagnostics.AddError("Reading the API token failed", apiTokenReadHint(err))
 		return
 	}
 	v, diags := apiTokenValue(t)
@@ -137,7 +137,7 @@ func (d *apiTokensDataSource) Read(ctx context.Context, req datasource.ReadReque
 	}
 	items, err := d.client.ListAPITokens(ctx, client.APITokenFilter{OwnerID: owner.ValueString()})
 	if err != nil {
-		resp.Diagnostics.AddError("Listing API tokens failed", err.Error())
+		resp.Diagnostics.AddError("Listing API tokens failed", apiTokenReadHint(err))
 		return
 	}
 	vals := make([]attr.Value, 0, len(items))

@@ -16,6 +16,14 @@ const apiTokenGrantNote = "Reading token metadata needs an API token with the `t
 	"Ledger refuses `POST /auth/tokens` for any other API token with 403 `forbidden`. Revoking a root token needs the root token too (`root_token_required`)."
 
 // grantsSet converts grants to a set value; a root token holds none of its own, so it maps to null.
+// apiTokenReadHint names the grant a read needs when Ledger refuses it with 403. It formats only the API error, which never carries the secret.
+func apiTokenReadHint(err error) string {
+	if client.IsForbidden(err) {
+		return err.Error() + " Reading API tokens needs an API token with the tokens:read grant."
+	}
+	return err.Error()
+}
+
 func grantsSet(t client.APIToken) (types.Set, diag.Diagnostics) {
 	if t.Root || len(t.Grants) == 0 {
 		return types.SetNull(types.StringType), nil
