@@ -61,7 +61,7 @@ descoped**: when its endpoints land in the OpenAPI document, the provider resour
 | `GET /occurrences`, `/occurrences/{id}`, `/occurrences/summary`, `GET /outlook` | Data sources `ledger_occurrences`, `ledger_monthly_summary`, `ledger_outlook`. These are derived reports, not configuration; they stay read-only. The outlook is never a guarantee of money that is safe to spend, and the data source documentation says so. | follow-up F5 |
 | `GET /payment-matches`, `/payment-matches/{id}` | Data source `ledger_payment_matches`, read-only. | follow-up F5 |
 | `GET /audit` | Data source `ledger_audit_entries` (filters, paging). | follow-up F5 |
-| `GET /bank-applications`, `GET /bank-applications/{application}/institutions`, `GET /bank-connections`, `GET /bank-connections/{id}` | Data sources `ledger_bank_applications`, `ledger_bank_institutions`, `ledger_bank_connections`: status and freshness of what is connected, so a configuration can depend on it. No account numbers or balances are exposed beyond what the API's connection resource already returns, and the docs say they are bank-sourced facts. | follow-up F6 |
+| `GET /bank-applications`, `GET /bank-applications/{application}/institutions`, `GET /bank-connections`, `GET /bank-connections/{id}` | Data sources `ledger_bank_applications`, `ledger_bank_institutions`, `ledger_bank_connections` and `ledger_bank_connection`: status and freshness of what is connected, so a configuration can depend on it. Balances and account identifier hints are not read at all, and the docs say the rest are bank-sourced facts (ADR-0013). | done |
 | `GET /auth/methods` (public) | `ledger_auth_methods` data source (public information). | follow-up F5 |
 | `GET /merchants/sources` | `ledger_merchant_sources` data source: the vocabulary of merchant sources. | follow-up F5 |
 | `GET /transactions/{id}/merchant` | **Exception.** The merchant annotation of one bank transaction, a bank fact whose operand a configuration cannot find (no transaction list or search endpoint). Merchants themselves are read through `ledger_merchant` data sources. | exception |
@@ -125,7 +125,7 @@ descoped**: when its endpoints land in the OpenAPI document, the provider resour
 - **F4** `ledger_manual_payment` and `ledger_occurrence_status_override`.
 - **F5** Read-only data sources: `ledger_merchant_sources` (`GET /merchants/sources`), me, grants, auth methods, exchange rates and status, occurrences, monthly summary, outlook,
   payment matches, audit entries.
-- **F6** Read-only bank data sources: applications, institutions, connections (freshness and status visible).
+- **F6** Read-only bank data sources: applications, institutions, connections (freshness and status visible). Done: ADR-0013.
 - **F7** Compatibility check in `Configure`: read `info.version` from the served OpenAPI document, fail on an unsupported
   major, warn on a newer minor. **Done** (ADR-0008); the harness checks the exact pin (ADR-0002).
 - **F8** Client reliability: idempotent-read retries (D17, at most 3 with backoff) and timeouts, shared by all resources.
@@ -204,12 +204,12 @@ operation; the status is the first word (`done`, `follow-up` or `exception`).
 | `POST /payment-matches/{id}/reverse` | review workflow or run over bank transactions: the API has no transaction list or search endpoint, so a configuration cannot find the operand; decisions in a queue, not state to converge | exception |
 | `POST /payment-matches/{id}/unconfirm` | review workflow or run over bank transactions: the API has no transaction list or search endpoint, so a configuration cannot find the operand; decisions in a queue, not state to converge | exception |
 | `POST /payment-matches/{id}/confirm-replacing` | review workflow or run over bank transactions: the API has no transaction list or search endpoint, so a configuration cannot find the operand; decisions in a queue, not state to converge | exception |
-| `GET /bank-applications` | data source `ledger_bank_applications` | follow-up F6 |
-| `GET /bank-applications/{application}/institutions` | data source `ledger_bank_institutions` | follow-up F6 |
-| `GET /bank-connections` | data sources `ledger_bank_connections` | follow-up F6 |
+| `GET /bank-applications` | data source `ledger_bank_applications` | done |
+| `GET /bank-applications/{application}/institutions` | data source `ledger_bank_institutions` | done |
+| `GET /bank-connections` | data source `ledger_bank_connections` | done |
 | `POST /bank-connections` | consent flow or imperative action on a bank connection; Terraform must not script consent | exception |
 | `POST /bank-connections/complete` | consent flow or imperative action on a bank connection; Terraform must not script consent | exception |
-| `GET /bank-connections/{id}` | data sources `ledger_bank_connections` | follow-up F6 |
+| `GET /bank-connections/{id}` | data source `ledger_bank_connection` | done |
 | `POST /bank-connections/{id}/reconnect` | consent flow or imperative action on a bank connection; Terraform must not script consent | exception |
 | `POST /bank-connections/{id}/refresh` | consent flow or imperative action on a bank connection; Terraform must not script consent | exception |
 | `POST /bank-connections/{id}/disconnect` | consent flow or imperative action on a bank connection; Terraform must not script consent | exception |

@@ -184,5 +184,7 @@ func (p *ledgerProvider) DataSources(context.Context) []func() datasource.DataSo
 		NewMerchantDataSource, NewMerchantsDataSource,
 		NewCommitmentDataSource, NewCommitmentsDataSource,
 		NewDeferralPlanDataSource, NewDeferralPlansDataSource, NewDeferralHistoryDataSource, NewOccurrenceDataSource,
+		// Read-only bank data sources (task F6, ADR-0013).
+		NewBankApplicationsDataSource, NewBankInstitutionsDataSource, NewBankConnectionsDataSource, NewBankConnectionDataSource,
 	}
 }

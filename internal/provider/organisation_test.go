@@ -58,7 +58,7 @@ func TestOrganisationTypeNames(t *testing.T) {
 		ds = append(ds, m.TypeName)
 	}
 	wantRes := "ledger_category ledger_label ledger_bucket ledger_category_assignment ledger_label_assignment ledger_bucket_member ledger_merchant ledger_merchant_alias ledger_commitment ledger_deferral_plan ledger_deferral_plan_adjustment"
-	wantDS := "ledger_category ledger_label ledger_bucket ledger_categories ledger_labels ledger_buckets ledger_object_organisation ledger_bucket_members ledger_merchant ledger_merchants ledger_commitment ledger_commitments ledger_deferral_plan ledger_deferral_plans ledger_deferral_plan_history ledger_occurrence"
+	wantDS := "ledger_category ledger_label ledger_bucket ledger_categories ledger_labels ledger_buckets ledger_object_organisation ledger_bucket_members ledger_merchant ledger_merchants ledger_commitment ledger_commitments ledger_deferral_plan ledger_deferral_plans ledger_deferral_plan_history ledger_occurrence ledger_bank_applications ledger_bank_institutions ledger_bank_connections ledger_bank_connection"
 	if got := strings.Join(res, " "); got != wantRes {
 		t.Errorf("resources %q", got)
 	}
