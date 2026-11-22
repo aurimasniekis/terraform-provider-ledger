@@ -37,8 +37,8 @@ OpenAPI document of a go-ledger checkout at the commit named above (see Decision
 | User passwords (`PUT /users/{id}/password`) | Write-only: `ledger_user_password` with `password_wo` and `password_wo_version` (Terraform 1.11 or later). Needs the root token (D32). The value is never in plan or state. | done (ADR-0014) |
 | API tokens, create (`POST /auth/tokens`) and revoke (`DELETE /tokens/{id}`), list and get (`/tokens`, `tokens:read`) | `ledger_api_token` and a metadata-only `ledger_api_tokens` data source. Tokens cannot be changed, so every change replaces. Creation by an API token needs the **root token of the root account** and creates tokens owned by that account (see the secrets section). | follow-up F2 |
 | Deferral plans and their adjustments (`/deferral-plans`, `/adjustments`, `/adjustments/{adjustment_id}/paid` and `/unpaid`, undo, history) | `ledger_deferral_plan` (create, revise, destroy = undo) and `ledger_deferral_plan_adjustment`, whose `paid` attribute calls the paid and unpaid operations (marking an adjustment paid is the person's own record, not a bank fact); history as a data source. They hang off an **occurrence**, which Ledger derives and may recreate, so a data source to find the occurrence is part of the task. (ADR-0010) | done |
-| Manual payments (`/occurrences/{id}/manual-payments`) | `ledger_manual_payment`: a payment the person records by hand, user data and not a bank fact. Cannot be changed (replace). | follow-up F4 |
-| Manual status override (`PUT/DELETE /occurrences/{id}/status-override`) | `ledger_occurrence_status_override` | follow-up F4 |
+| Manual payments (`/occurrences/{id}/manual-payments`) | `ledger_manual_payment`: a payment the person records by hand, user data and not a bank fact. Cannot be changed (replace). Data sources `ledger_manual_payment` and `ledger_manual_payments` (ADR-0011). | done (F4) |
+| Manual status override (`PUT/DELETE /occurrences/{id}/status-override`) | `ledger_occurrence_status_override`, and a data source of the same name (ADR-0011) | done (F4) |
 | Merchant review decisions (`PUT /transactions/{id}/merchant/review`, `DELETE /transactions/{id}/merchant/review`) | **Exception.** A user correction over a bank fact, but a configuration cannot find its operand: **the API has no transaction list or search endpoint**, so a transaction identifier cannot be obtained or declared, and the operations are decisions in a review queue. Revisit when the API serves a way to find transactions. | exception |
 | Rules (expr-lang matching and categorisation rules) | Declarative resource wanted (D18). **No endpoint in the API**: blocked until go-ledger serves one. | blocked B1 |
 
@@ -122,7 +122,7 @@ descoped**: when its endpoints land in the OpenAPI document, the provider resour
 - **F1** `ledger_user` and `ledger_user_password` (write-only) with data sources; destroy disables. Done: ADR-0014.
 - **F2** `ledger_api_token` (state exception, replace-on-change) and `ledger_api_tokens`; root-token prerequisite tests.
 - **F3** `ledger_deferral_plan`, `ledger_deferral_plan_adjustment`, history data source, and a way to find an occurrence. Done: ADR-0010.
-- **F4** `ledger_manual_payment` and `ledger_occurrence_status_override`.
+- **F4** `ledger_manual_payment` and `ledger_occurrence_status_override`. **Done** (ADR-0011).
 - **F5** Read-only data sources: `ledger_merchant_sources` (`GET /merchants/sources`), me, grants, auth methods, exchange rates and status, occurrences, monthly summary, outlook,
   payment matches, audit entries.
 - **F6** Read-only bank data sources: applications, institutions, connections (freshness and status visible). Done: ADR-0013.
@@ -188,12 +188,12 @@ operation; the status is the first word (`done`, `follow-up` or `exception`).
 | `GET /tokens` | metadata-only data source `ledger_api_tokens` | follow-up F2 |
 | `GET /tokens/{id}` | metadata-only data source `ledger_api_tokens` | follow-up F2 |
 | `DELETE /tokens/{id}` | `ledger_api_token` destroy (revoke) | follow-up F2 |
-| `GET /occurrences/{id}/manual-payments` | data source of recorded payments, with `ledger_manual_payment` | follow-up F4 |
-| `POST /occurrences/{id}/manual-payments` | `ledger_manual_payment` (replace on change) | follow-up F4 |
-| `GET /occurrences/{id}/manual-payments/{payment_id}` | data source of recorded payments, with `ledger_manual_payment` | follow-up F4 |
-| `DELETE /occurrences/{id}/manual-payments/{payment_id}` | `ledger_manual_payment` (replace on change) | follow-up F4 |
-| `PUT /occurrences/{id}/status-override` | `ledger_occurrence_status_override` | follow-up F4 |
-| `DELETE /occurrences/{id}/status-override` | `ledger_occurrence_status_override` | follow-up F4 |
+| `GET /occurrences/{id}/manual-payments` | data source of recorded payments, with `ledger_manual_payment` | done (F4) |
+| `POST /occurrences/{id}/manual-payments` | `ledger_manual_payment` (replace on change) | done (F4) |
+| `GET /occurrences/{id}/manual-payments/{payment_id}` | data source of recorded payments, with `ledger_manual_payment` | done (F4) |
+| `DELETE /occurrences/{id}/manual-payments/{payment_id}` | `ledger_manual_payment` (replace on change) | done (F4) |
+| `PUT /occurrences/{id}/status-override` | `ledger_occurrence_status_override` | done (F4) |
+| `DELETE /occurrences/{id}/status-override` | `ledger_occurrence_status_override` | done (F4) |
 | `GET /payment-matches` | data source `ledger_payment_matches` | follow-up F5 |
 | `POST /payment-matches` | review workflow or run over bank transactions: the API has no transaction list or search endpoint, so a configuration cannot find the operand; decisions in a queue, not state to converge | exception |
 | `GET /payment-matches/{id}` | data source `ledger_payment_matches` (by id) | follow-up F5 |

@@ -236,13 +236,15 @@ func (c *Client) adjustmentCall(ctx context.Context, method, planID, adjustmentI
 // PaymentState is the part of an occurrence's derived payment state the provider reads. It is derived on every read from
 // payment evidence and dates, never stored by Terraform and never converted between currencies.
 type PaymentState struct {
-	Status                string   `json:"status"`
-	Timing                *string  `json:"timing"`
-	PaidAmount            Money    `json:"paid_amount"`
-	OutstandingAmount     Money    `json:"outstanding_amount"`
-	UnconvertedCurrencies []string `json:"unconverted_currencies"`
-	GraceUntil            *string  `json:"grace_until"`
-	WithinGrace           bool     `json:"within_grace"`
+	Status                string         `json:"status"`
+	DerivedStatus         string         `json:"derived_status"`
+	Override              *OverrideState `json:"override"`
+	Timing                *string        `json:"timing"`
+	PaidAmount            Money          `json:"paid_amount"`
+	OutstandingAmount     Money          `json:"outstanding_amount"`
+	UnconvertedCurrencies []string       `json:"unconverted_currencies"`
+	GraceUntil            *string        `json:"grace_until"`
+	WithinGrace           bool           `json:"within_grace"`
 }
 
 // Occurrence is one due date of a commitment, derived by Ledger from the definition. It may be rewritten in place by a

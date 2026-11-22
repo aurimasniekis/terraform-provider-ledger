@@ -175,6 +175,8 @@ func (p *ledgerProvider) Resources(context.Context) []func() resource.Resource {
 		NewDeferralPlanResource, NewDeferralAdjustmentResource,
 		// Users and their write-only passwords (task F1, ADR-0014).
 		NewUserResource, NewUserPasswordResource,
+		// Manual payments and status overrides (task F4, ADR-0011).
+		NewManualPaymentResource, NewStatusOverrideResource,
 	}
 }
 
@@ -190,5 +192,7 @@ func (p *ledgerProvider) DataSources(context.Context) []func() datasource.DataSo
 		NewBankApplicationsDataSource, NewBankInstitutionsDataSource, NewBankConnectionsDataSource, NewBankConnectionDataSource,
 		// User data sources (task F1, ADR-0014).
 		NewUserDataSource, NewUsersDataSource,
+		// Manual payments and status overrides (task F4, ADR-0011).
+		NewManualPaymentDataSource, NewManualPaymentsDataSource, NewStatusOverrideDataSource,
 	}
 }
