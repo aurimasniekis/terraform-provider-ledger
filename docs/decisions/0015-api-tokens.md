@@ -31,8 +31,10 @@ the session-only twins (`/auth/tokens` list, get and delete) are not used: the p
    provider logs request or response bodies. Unit tests check the data sources for a secret attribute and the state for a match with the
    issued token only in `secret`.
 4. **Replace on change.** A token cannot be changed (the API has no update), so `name`, `grants`, `root` and `expires_at` all replace.
-   Replacement destroys first (revoking the old token and, by Ledger's cascade, the tokens made through it), then creates. For a zero-gap rotation, set `lifecycle { create_before_destroy = true }`, so the new token is created before the old one is revoked; without it, a create that fails (for example, because the provider does not run with the root token) leaves the old token revoked and nothing in its place. `Update` is a
-   bug guard that fails.
+   Replacement destroys first (revoking the old token and, by Ledger's cascade, the tokens made through it), then creates. For a zero-gap
+   rotation, set `lifecycle { create_before_destroy = true }`, so the new token is created before the old one is revoked; without it, a
+   create that fails (for example, because the provider does not run with the root token) leaves the old token revoked and nothing in its
+   place. `Update` is a bug guard that fails.
 5. **Grants or root.** `grants` (a set, at least one) or `root = true`, not both, checked at validation; the grant vocabulary is
    Ledger's (the `ledger_grants` data source) and is not copied into the provider, so Ledger refuses an unknown grant or one the root
    token does not hold. `root` defaults to `false`; a root token's own grants are empty and read back as null.
