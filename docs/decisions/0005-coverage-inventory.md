@@ -36,7 +36,7 @@ OpenAPI document of a go-ledger checkout at the commit named above (see Decision
 | Users (`/users`: create, get, list, patch role, display name, disabled) | `ledger_user` and data sources. Ledger has **no delete**: destroy disables the user (documented). Creating or promoting an administrator and re-enabling one needs the root token (D32). | follow-up F1 |
 | User passwords (`PUT /users/{id}/password`) | Write-only: `ledger_user_password` with `password_wo` and `password_wo_version` (Terraform 1.11 or later). Needs the root token (D32). The value is never in plan or state. | follow-up F1 |
 | API tokens, create (`POST /auth/tokens`) and revoke (`DELETE /tokens/{id}`), list and get (`/tokens`, `tokens:read`) | `ledger_api_token` and a metadata-only `ledger_api_tokens` data source. Tokens cannot be changed, so every change replaces. Creation by an API token needs the **root token of the root account** and creates tokens owned by that account (see the secrets section). | follow-up F2 |
-| Deferral plans and their adjustments (`/deferral-plans`, `/adjustments`, `/adjustments/{adjustment_id}/paid` and `/unpaid`, undo, history) | `ledger_deferral_plan` (create, revise, destroy = undo) and `ledger_deferral_plan_adjustment`, whose `paid` attribute calls the paid and unpaid operations (marking an adjustment paid is the person's own record, not a bank fact); history as a data source. They hang off an **occurrence**, which Ledger derives and may recreate, so a data source to find the occurrence is part of the task. | follow-up F3 |
+| Deferral plans and their adjustments (`/deferral-plans`, `/adjustments`, `/adjustments/{adjustment_id}/paid` and `/unpaid`, undo, history) | `ledger_deferral_plan` (create, revise, destroy = undo) and `ledger_deferral_plan_adjustment`, whose `paid` attribute calls the paid and unpaid operations (marking an adjustment paid is the person's own record, not a bank fact); history as a data source. They hang off an **occurrence**, which Ledger derives and may recreate, so a data source to find the occurrence is part of the task. (ADR-0008) | done |
 | Manual payments (`/occurrences/{id}/manual-payments`) | `ledger_manual_payment`: a payment the person records by hand, user data and not a bank fact. Cannot be changed (replace). | follow-up F4 |
 | Manual status override (`PUT/DELETE /occurrences/{id}/status-override`) | `ledger_occurrence_status_override` | follow-up F4 |
 | Merchant review decisions (`PUT /transactions/{id}/merchant/review`, `DELETE /transactions/{id}/merchant/review`) | **Exception.** A user correction over a bank fact, but a configuration cannot find its operand: **the API has no transaction list or search endpoint**, so a transaction identifier cannot be obtained or declared, and the operations are decisions in a review queue. Revisit when the API serves a way to find transactions. | exception |
@@ -122,7 +122,7 @@ descoped**: when its endpoints land in the OpenAPI document, the provider resour
 
 - **F1** `ledger_user` and `ledger_user_password` (write-only) with data sources; destroy disables.
 - **F2** `ledger_api_token` (state exception, replace-on-change) and `ledger_api_tokens`; root-token prerequisite tests.
-- **F3** `ledger_deferral_plan`, `ledger_deferral_plan_adjustment`, history data source, and a way to find an occurrence.
+- **F3** `ledger_deferral_plan`, `ledger_deferral_plan_adjustment`, history data source, and a way to find an occurrence. Done: ADR-0008.
 - **F4** `ledger_manual_payment` and `ledger_occurrence_status_override`.
 - **F5** Read-only data sources: me, grants, auth methods, exchange rates and status, occurrences, monthly summary, outlook,
   payment matches, audit entries.
@@ -233,16 +233,16 @@ operation; the status is the first word (`done`, `follow-up` or `exception`).
 | `GET /rates` | data source `ledger_exchange_rates` | follow-up F5 |
 | `GET /rates/status` | data source `ledger_rates_status` | follow-up F5 |
 | `POST /rates/refreshes` | imperative action (refresh now); rates are provider-sourced data | exception |
-| `GET /deferral-plans` | data sources `ledger_deferral_plan`, `ledger_deferral_plans` | follow-up F3 |
-| `POST /deferral-plans` | `ledger_deferral_plan` (create, revise) | follow-up F3 |
-| `GET /deferral-plans/{id}` | data sources `ledger_deferral_plan`, `ledger_deferral_plans` | follow-up F3 |
-| `PATCH /deferral-plans/{id}` | `ledger_deferral_plan` (create, revise) | follow-up F3 |
-| `POST /deferral-plans/{id}/undo` | `ledger_deferral_plan` destroy (undo) | follow-up F3 |
-| `GET /deferral-plans/{id}/history` | data source of a plan's history | follow-up F3 |
-| `POST /deferral-plans/{id}/adjustments` | `ledger_deferral_plan_adjustment` (create, destroy) | follow-up F3 |
-| `DELETE /deferral-plans/{id}/adjustments/{adjustment_id}` | `ledger_deferral_plan_adjustment` (create, destroy) | follow-up F3 |
-| `POST /deferral-plans/{id}/adjustments/{adjustment_id}/paid` | `paid` attribute of `ledger_deferral_plan_adjustment` (true calls `/paid`, false calls `/unpaid`); user data, not a bank fact | follow-up F3 |
-| `POST /deferral-plans/{id}/adjustments/{adjustment_id}/unpaid` | `paid` attribute of `ledger_deferral_plan_adjustment` (true calls `/paid`, false calls `/unpaid`); user data, not a bank fact | follow-up F3 |
+| `GET /deferral-plans` | data sources `ledger_deferral_plan`, `ledger_deferral_plans` (ADR-0008) | done |
+| `POST /deferral-plans` | `ledger_deferral_plan` (create, revise) (ADR-0008) | done |
+| `GET /deferral-plans/{id}` | data sources `ledger_deferral_plan`, `ledger_deferral_plans` (ADR-0008) | done |
+| `PATCH /deferral-plans/{id}` | `ledger_deferral_plan` (create, revise) (ADR-0008) | done |
+| `POST /deferral-plans/{id}/undo` | `ledger_deferral_plan` destroy (undo) (ADR-0008) | done |
+| `GET /deferral-plans/{id}/history` | data source of a plan's history (ADR-0008) | done |
+| `POST /deferral-plans/{id}/adjustments` | `ledger_deferral_plan_adjustment` (create, destroy) (ADR-0008) | done |
+| `DELETE /deferral-plans/{id}/adjustments/{adjustment_id}` | `ledger_deferral_plan_adjustment` (create, destroy) (ADR-0008) | done |
+| `POST /deferral-plans/{id}/adjustments/{adjustment_id}/paid` | `paid` attribute of `ledger_deferral_plan_adjustment` (true calls `/paid`, false calls `/unpaid`); user data, not a bank fact (ADR-0008) | done |
+| `POST /deferral-plans/{id}/adjustments/{adjustment_id}/unpaid` | `paid` attribute of `ledger_deferral_plan_adjustment` (true calls `/paid`, false calls `/unpaid`); user data, not a bank fact (ADR-0008) | done |
 | `GET /categories` | `ledger_category` and data sources (ADR-0004) | done |
 | `POST /categories` | `ledger_category` (ADR-0004) | done |
 | `GET /categories/{id}` | `ledger_category` and data sources (ADR-0004) | done |
