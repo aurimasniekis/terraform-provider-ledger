@@ -146,10 +146,3 @@ func TestConfigureWarnsOnPlainHTTPRemote(t *testing.T) {
 		t.Errorf("loopback http must not warn: %v", resp.Diagnostics)
 	}
 }
-
-func TestNoResourcesYet(t *testing.T) {
-	p := New("test")()
-	if len(p.Resources(context.Background())) != 0 || len(p.DataSources(context.Background())) != 0 {
-		t.Error("scaffold registers no resources; see the TODO(management-api) markers")
-	}
-}
