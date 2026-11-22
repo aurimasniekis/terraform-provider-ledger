@@ -1,4 +1,4 @@
-# ADR-0005: Merchant targets and merchant records
+# ADR-0007: Merchant targets and merchant records
 
 Status: Accepted (2026-11-22). It resolves the deferral in the limitations of [ADR-0004](0004-organisation-resources.md).
 
@@ -22,7 +22,7 @@ ADR-0062 organises merchants through `/organisation/merchant/{id}`. Merchant rou
    merchants included; lists the aliases) and `ledger_merchants` (`include_archived`: the API lists active merchants unless
    `archived=true`, which adds archived and merged ones).
 4. **Archive first**, as for definitions. Destroying a merchant that decisions, assignments or merged merchants refer to fails with
-   `merchant_in_use` and the error says to archive. Merging merchants is **not** a Terraform resource: it moves aliases, decisions
+   `merchant_in_use` and the error says to archive (for a merchant that was merged, it says that instead: a merged merchant is already archived and cannot be deleted, so remove it from state). Merging merchants is **not** a Terraform resource: it moves aliases, decisions
    and assignments and cannot be undone in place (go-ledger ADR-0058 item 6), so it stays an explicit action in Ledger.
 5. **Version bumps by aliases.** Adding or removing an alias bumps the merchant's version. `ledger_merchant_alias` does that in the
    same run as `ledger_merchant`, after the merchant was read, so a stale version on update or delete is retried once with the
@@ -30,9 +30,11 @@ ADR-0062 organises merchants through `/organisation/merchant/{id}`. Merchant rou
    made outside Terraform is still a conflict (ADR-0004 item 3), never an overwrite. The merchant's `version` and `updated_at`
    therefore differ after an import that follows an alias change; acceptance import checks ignore them.
 6. **Aliases.** Every merchant has its display name as an alias, and a rename adds the new name as an alias. A `ledger_merchant_alias`
-   for a name the merchant already has takes that alias over (destroying the resource removes it); a name another merchant has
-   fails with `merchant_alias_taken`. Display names and aliases are validated as 1 to 200 characters with no surrounding or repeated
-   white space; Unicode normalisation (NFC) is done by Ledger and not checked at plan time, so write names in NFC.
+   for a name the merchant already has takes that alias over (destroying the resource removes it); Ledger matches aliases by key (NFC,
+   lower case, white space collapsed) and keeps the stored spelling, so a different spelling of an existing alias is refused with an
+   error naming the stored one; a name another merchant has fails with `merchant_alias_taken`. Display names and aliases are validated as 1 to 200 characters with no surrounding or repeated
+   white space; a name that is not in Unicode normalisation form NFC is refused at plan time (Ledger would store the composed form, leaving an
+   alias Terraform does not track).
 7. **Grants.** A token without the merchants grants gets Ledger's 403 on any merchant resource, data source or assignment; the
    docs say so. Nothing here widens a token.
 

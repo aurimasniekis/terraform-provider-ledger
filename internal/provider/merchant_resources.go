@@ -212,6 +212,10 @@ func (r *merchantResource) Delete(ctx context.Context, req resource.DeleteReques
 	})
 	switch {
 	case err == nil || client.IsNotFound(err):
+	case client.HasCode(err, client.CodeMerchantInUse) && r.isMerged(ctx, st):
+		resp.Diagnostics.AddError("The merchant was merged and cannot be deleted",
+			err.Error()+" It was merged into another merchant in Ledger, which keeps its history and aliases; a merged merchant stays archived and cannot be deleted. "+
+				"Remove it from the Terraform configuration with terraform state rm instead.")
 	case client.HasCode(err, client.CodeMerchantInUse):
 		resp.Diagnostics.AddError("The merchant is still in use",
 			err.Error()+" Decisions, assignments or merged merchants refer to it. Archive it instead (archived = true) to keep history.")
@@ -220,6 +224,15 @@ func (r *merchantResource) Delete(ctx context.Context, req resource.DeleteReques
 	default:
 		resp.Diagnostics.AddError("Deleting the merchant failed", err.Error())
 	}
+}
+
+// isMerged reports whether the merchant was merged into another one, from state or from a fresh read.
+func (r *merchantResource) isMerged(ctx context.Context, st merchantModel) bool {
+	if !st.MergedInto.IsNull() {
+		return true
+	}
+	cur, err := r.client.GetMerchant(ctx, st.ID.ValueString())
+	return err == nil && cur.MergedInto != nil
 }
 
 func (r *merchantResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
@@ -261,7 +274,7 @@ func (r *merchantAliasResource) Schema(_ context.Context, _ resource.SchemaReque
 			"id": schema.StringAttribute{Computed: true, MarkdownDescription: "`<merchant_id>/<alias_id>`.", PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()}},
 			"merchant_id": schema.StringAttribute{Required: true, MarkdownDescription: "The identifier of the merchant. Changing it replaces the resource.", PlanModifiers: replaceOnChange,
 				Validators: []validator.String{idValidator()}},
-			"name": schema.StringAttribute{Required: true, MarkdownDescription: "The alias name, 1 to 200 characters, as Ledger stores it (trimmed, white space collapsed). Changing it replaces the resource.",
+			"name": schema.StringAttribute{Required: true, MarkdownDescription: "The alias name, 1 to 200 characters, as Ledger stores it (trimmed, white space collapsed, Unicode NFC). Ledger matches aliases by key (ignoring case and white space) and keeps the stored spelling, so a different spelling of an alias the merchant already has is refused with the stored one named. Changing it replaces the resource.",
 				PlanModifiers: replaceOnChange, Validators: []validator.String{merchantNameValidator()}},
 			"alias_id": schema.StringAttribute{Computed: true, MarkdownDescription: "The alias identifier.", PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()}},
 			"key":      schema.StringAttribute{Computed: true, MarkdownDescription: "The name as matched: Unicode NFC, white space collapsed, lower case."},
@@ -299,15 +312,25 @@ func (r *merchantAliasResource) Create(ctx context.Context, req resource.CreateR
 		resp.Diagnostics.AddError(summary, err.Error())
 		return
 	}
+	// Ledger matches an alias by its key (NFC, lower case, white space collapsed) and keeps the stored spelling when the
+	// merchant already has that key, so find it by key, not by name.
+	key := aliasKey(name)
 	for _, a := range m.Aliases {
-		if a.Name == name {
-			var out merchantAliasModel
-			out.fill(id, a)
-			resp.Diagnostics.Append(resp.State.Set(ctx, &out)...)
+		if a.Key != key && aliasKey(a.Name) != key {
+			continue
+		}
+		if a.Name != name {
+			resp.Diagnostics.AddAttributeError(path.Root("name"), "The merchant already has this alias under another spelling",
+				fmt.Sprintf("The merchant already has this alias as %q (aliases match regardless of case and spacing, and Ledger keeps the stored spelling). "+
+					"Write the name exactly that way.", a.Name))
 			return
 		}
+		var out merchantAliasModel
+		out.fill(id, a)
+		resp.Diagnostics.Append(resp.State.Set(ctx, &out)...)
+		return
 	}
-	resp.Diagnostics.AddError("The alias is not on the merchant", "Ledger accepted the alias but the merchant does not list it under that name. This is unexpected; read the merchant again.")
+	resp.Diagnostics.AddError("The alias is not on the merchant", "Ledger accepted the alias but the merchant does not list it. This is unexpected; read the merchant again.")
 }
 
 // Update is never called: every writable attribute forces replacement.

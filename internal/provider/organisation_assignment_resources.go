@@ -82,7 +82,7 @@ func (r *categoryAssignmentResource) Configure(_ context.Context, req resource.C
 func (r *categoryAssignmentResource) apply(ctx context.Context, m *categoryAssignmentModel, diagsFn func(string, string)) {
 	_, err := r.client.SetObjectCategory(ctx, client.ObjectType(m.ObjectType.ValueString()), m.ObjectID.ValueString(), nullableString(m.CategoryID))
 	if err != nil {
-		diagsFn("Setting the category failed", err.Error())
+		diagsFn(merchantArchivedHint(err, "Setting the category failed"))
 		return
 	}
 	m.ID = types.StringValue(m.ObjectType.ValueString() + "/" + m.ObjectID.ValueString())
@@ -224,7 +224,8 @@ func (r *labelAssignmentResource) Create(ctx context.Context, req resource.Creat
 		return
 	}
 	if _, err := r.client.AddObjectLabel(ctx, client.ObjectType(m.ObjectType.ValueString()), m.ObjectID.ValueString(), m.LabelID.ValueString()); err != nil {
-		resp.Diagnostics.AddError("Putting the label on the object failed", err.Error())
+		s, d := merchantArchivedHint(err, "Putting the label on the object failed")
+		resp.Diagnostics.AddError(s, d)
 		return
 	}
 	m.ID = types.StringValue(m.ObjectType.ValueString() + "/" + m.ObjectID.ValueString() + "/" + m.LabelID.ValueString())

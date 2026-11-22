@@ -29,7 +29,7 @@ resource "ledger_merchant_alias" "grocer_branch" {
 ### Required
 
 - `merchant_id` (String) The identifier of the merchant. Changing it replaces the resource.
-- `name` (String) The alias name, 1 to 200 characters, as Ledger stores it (trimmed, white space collapsed). Changing it replaces the resource.
+- `name` (String) The alias name, 1 to 200 characters, as Ledger stores it (trimmed, white space collapsed, Unicode NFC). Ledger matches aliases by key (ignoring case and white space) and keeps the stored spelling, so a different spelling of an alias the merchant already has is refused with the stored one named. Changing it replaces the resource.
 
 ### Read-Only
 

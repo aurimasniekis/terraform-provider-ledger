@@ -181,6 +181,45 @@ resource "ledger_label_assignment" "second" {
 	})
 }
 
+// TestMerchantAliasSpellings covers how Ledger matches an alias by key: the exact display name is taken over, a case
+// variant of an alias the merchant already has is refused with the stored spelling named (and adds nothing), and a new
+// spelling is added.
+func TestMerchantAliasSpellings(t *testing.T) {
+	c := merchantFixture(t)
+	cfg := func(alias string) string {
+		return fmt.Sprintf(`
+resource "ledger_merchant" "shop" {
+  display_name = "Lidl"
+}
+
+resource "ledger_merchant_alias" "branch" {
+  merchant_id = ledger_merchant.shop.id
+  name        = %q
+}
+`, alias)
+	}
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: providerFactories,
+		Steps: []resource.TestStep{
+			{Config: cfg("LIDL"), ExpectError: regexp.MustCompile(`already has this alias under another\s+spelling`)},
+			{
+				PreConfig: func() {
+					ms, err := c.ListMerchants(context.Background(), true)
+					if err != nil || len(ms) != 1 || len(ms[0].Aliases) != 1 {
+						t.Errorf("the refused alias must not have added anything: %v %+v", err, ms)
+					}
+				},
+				// The display-name alias is taken over, not duplicated.
+				Config: cfg("Lidl"),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("ledger_merchant_alias.branch", "origin", "display_name"),
+					resource.TestCheckResourceAttr("ledger_merchant_alias.branch", "key", "lidl"),
+				),
+			},
+		},
+	})
+}
+
 // TestMerchantNotABucketMember checks that a merchant is refused as a bucket member before any request is made.
 func TestMerchantNotABucketMember(t *testing.T) {
 	merchantFixture(t)

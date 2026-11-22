@@ -90,6 +90,32 @@ func TestNameValidator(t *testing.T) {
 	}
 }
 
+func TestMerchantNameValidatorRefusesNonNFC(t *testing.T) {
+	cases := []struct {
+		name string
+		ok   bool
+	}{
+		{"Caf\xc3\xa9 Lidl", true},   // composed (NFC)
+		{"Cafe\xcc\x81 Lidl", false}, // e + combining acute: Ledger would store the NFC form
+		{"Lidl", true},
+	}
+	for _, tc := range cases {
+		var resp validator.StringResponse
+		merchantNameValidator().ValidateString(context.Background(), validator.StringRequest{ConfigValue: types.StringValue(tc.name)}, &resp)
+		if got := !resp.Diagnostics.HasError(); got != tc.ok {
+			t.Errorf("%q: valid=%v want %v", tc.name, got, tc.ok)
+		}
+	}
+}
+
+func TestAliasKey(t *testing.T) {
+	for in, want := range map[string]string{"LIDL": "lidl", "Cafe\xcc\x81  Lidl": "caf\xc3\xa9 lidl", " a\tb ": "a b"} {
+		if got := aliasKey(in); got != want {
+			t.Errorf("aliasKey(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
 func TestIDValidator(t *testing.T) {
 	for id, ok := range map[string]bool{"01JD3Y4C8V9M2Q7W5R6T0XZBNA": true, "01jd3y4c8v9m2q7w5r6t0xzbna": false, "none": false, "": false} {
 		var resp validator.StringResponse

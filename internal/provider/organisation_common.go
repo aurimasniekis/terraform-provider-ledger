@@ -12,6 +12,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"golang.org/x/text/unicode/norm"
 
 	"github.com/aurimasniekis/terraform-provider-ledger/internal/client"
 )
@@ -57,6 +58,12 @@ func (v normalisedNameValidator) ValidateString(_ context.Context, req validator
 		return
 	}
 	s := req.ConfigValue.ValueString()
+	if !norm.NFC.IsNormalString(s) {
+		resp.Diagnostics.AddAttributeError(req.Path, "Name is not Unicode-normalised",
+			"Ledger stores names in Unicode normalisation form NFC (composed characters), so a name in another form would be stored "+
+				"differently from what is written here. Write the name in NFC.")
+		return
+	}
 	if strings.Join(strings.Fields(s), " ") != s {
 		resp.Diagnostics.AddAttributeError(req.Path, "Name is not normalised",
 			"Ledger trims names and collapses white space, so the name must not start or end with white space or contain "+
@@ -73,6 +80,11 @@ func nameValidator() validator.String { return normalisedNameValidator{max: maxD
 
 // maxMerchantNameLength is the longest merchant display name or alias Ledger accepts (characters; ADR-0058 of go-ledger).
 const maxMerchantNameLength = 200
+
+// aliasKey is the key Ledger matches aliases by: NFC, lower case, white space collapsed (go-ledger AliasKey).
+func aliasKey(s string) string {
+	return strings.ToLower(strings.Join(strings.Fields(norm.NFC.String(s)), " "))
+}
 
 func merchantNameValidator() validator.String {
 	return normalisedNameValidator{max: maxMerchantNameLength}
@@ -115,6 +127,15 @@ func objectTypeValidator(allowed ...client.ObjectType) validator.String {
 		vals[i] = string(a)
 	}
 	return stringvalidator.OneOf(vals...)
+}
+
+// merchantArchivedHint turns Ledger's merchant_archived refusal (a new assignment to an archived merchant) into advice;
+// any other error is returned unchanged with the given summary.
+func merchantArchivedHint(err error, summary string) (string, string) {
+	if client.HasCode(err, client.CodeMerchantArchived) {
+		return "The merchant is archived", err.Error() + " An archived merchant takes no new assignment: unarchive it first (archived = false on ledger_merchant), then apply again."
+	}
+	return summary, err.Error()
 }
 
 func versionConflictDetail(err error) string {
