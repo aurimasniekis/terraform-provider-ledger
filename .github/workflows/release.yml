@@ -1,0 +1,51 @@
+# Provider release on version tags: GoReleaser builds, checksums and signs; the Registry reads the GitHub release.
+# Publishing the provider on the Terraform Registry is a manual operator step after the first signed tag (RELEASING.md).
+# Every action is pinned by commit SHA; the version in the trailing comment is the release it names.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+# Read-only by default. Only the release job below is granted the contents write scope, to create the GitHub release.
+permissions:
+  contents: read
+
+env:
+  GORELEASER_VERSION: v2.20.3
+
+jobs:
+  release:
+    name: goreleaser (signed)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # GoReleaser needs the tags to compute the version.
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Go from go.mod
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version-file: go.mod
+          # No build cache in a job that publishes release artifacts (cache poisoning).
+          cache: false
+      - name: Import GPG key
+        id: import_gpg
+        uses: crazy-max/ghaction-import-gpg@2dc316deee8e90f13e1a351ab510b4d5bc0c82cd # v7.0.0
+        with:
+          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+          passphrase: ${{ secrets.PASSPHRASE }}
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de # v7.3.0
+        with:
+          version: ${{ env.GORELEASER_VERSION }}
+          args: release --clean
+        env:
+          # The fingerprint is not a secret; it selects the key GoReleaser signs the checksums with.
+          GPG_FINGERPRINT: ${{ steps.import_gpg.outputs.fingerprint }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -21,6 +21,7 @@ env:
   GOVULNCHECK_VERSION: v1.10.0
   ACTIONLINT_VERSION: v1.7.12
   ZIZMOR_VERSION: 1.32.0
+  GORELEASER_VERSION: v2.20.3
 
 jobs:
   workflow-lint:
@@ -154,6 +155,23 @@ jobs:
       # The server, its database and its token are all local and temporary; no bank, model or rate service is used.
       - name: Acceptance tests against the pinned Ledger
         run: make acceptance LEDGER_ACC_SOURCE="$GITHUB_WORKSPACE/go-ledger"
+
+  release-config:
+    name: release config (goreleaser check, unsigned snapshot)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Go from go.mod
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version-file: go.mod
+      - name: Validate .goreleaser.yml and build an unsigned snapshot
+        run: make release-check release-snapshot
 
   govulncheck:
     name: govulncheck

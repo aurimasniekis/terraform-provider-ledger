@@ -19,6 +19,8 @@ The Ledger Terraform provider is maintained by one person. Changes arrive as pul
 5. Open a pull request that says what changed, how you verified it, and what you did not verify.
 6. Record a significant tradeoff in `docs/decisions/` (start from `0000-template.md`).
 
+Release steps are in [RELEASING.md](RELEASING.md).
+
 ## Commit messages
 
 Use [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/): `<type>(<scope>)!: <summary>`, with types `feat`, `fix`, `docs`, `refactor`, `test`, `build`, `ci`, `perf`, `chore`. Summary in the imperative, lower case, no full stop.

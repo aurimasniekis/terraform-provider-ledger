@@ -1,12 +1,14 @@
 # Provider developer entry points. Run `make help` for the list.
 GO       ?= go
 GOLANGCI ?= golangci-lint
+GORELEASER_VERSION ?= v2.20.3
+GORELEASER ?= $(GO) run github.com/goreleaser/goreleaser/v2@$(GORELEASER_VERSION)
 BIN_DIR  ?= bin
 BINARY   := $(BIN_DIR)/terraform-provider-ledger
 VERSION  ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS  := -X main.version=$(VERSION)
 
-.PHONY: help acceptance fmt fmt-check vet lint test build docs docs-check workflow-policy check clean
+.PHONY: help acceptance fmt fmt-check vet lint test build docs docs-check workflow-policy release-check release-snapshot check clean
 
 help: ## list the targets
 	@grep -E '^[a-zA-Z_-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  %-14s %s\n", $$1, $$2}'
@@ -47,6 +49,12 @@ docs-check: docs ## regenerate and validate docs, fail when docs/ differs from w
 workflow-policy: ## workflow permission policy: the negative fixtures must be rejected, then .github/workflows must pass
 	sh scripts/check-workflow-permissions.sh --self-test
 	sh scripts/check-workflow-permissions.sh .github/workflows
+
+release-check: ## validate .goreleaser.yml
+	$(GORELEASER) check
+
+release-snapshot: ## offline unsigned snapshot build into dist/ (no tag, no publish, no signing; needs no secrets)
+	GPG_FINGERPRINT=unsigned $(GORELEASER) release --snapshot --clean --skip=sign,publish
 
 check: fmt-check vet lint test build docs-check workflow-policy ## everything the checks need, in order
 

@@ -1,6 +1,7 @@
 # Build output
 /bin/
 /dist/
+/THIRD_PARTY_NOTICES.txt
 *.test
 *.out
 coverage.*
