@@ -33,8 +33,8 @@ OpenAPI document of a go-ledger checkout at the commit named above (see Decision
 | Bucket members, category and label assignments (`/buckets/{id}/members`, `/organisation/...`) | `ledger_bucket_member`, `ledger_category_assignment`, `ledger_label_assignment`, `ledger_object_organisation` (ADR-0004). Merchants as an assignment target: covered in the next row | done |
 | Merchants (`/merchants`, `/merchants/{id}`, archive and unarchive, `/merchants/{id}/aliases`) and merchants as an assignment target | `ledger_merchant`, `ledger_merchant_alias`, `ledger_merchant` and `ledger_merchants` data sources, merchant as a target of the organisation resources (ADR-0007, PR #8). `POST /merchants/{id}/merge` is an **action exception** (see below). `GET /merchants/sources` is a read-only data source, `ledger_merchant_sources` (F5). | done in PR #8; sources: follow-up F5 |
 | Commitments (`/commitments`) with schedule, amount and currency, tolerance, leeway | `ledger_commitment`, `ledger_commitment` and `ledger_commitments` data sources (ADR-0006) | done |
-| Users (`/users`: create, get, list, patch role, display name, disabled) | `ledger_user` and data sources. Ledger has **no delete**: destroy disables the user (documented). Creating or promoting an administrator and re-enabling one needs the root token (D32). | follow-up F1 |
-| User passwords (`PUT /users/{id}/password`) | Write-only: `ledger_user_password` with `password_wo` and `password_wo_version` (Terraform 1.11 or later). Needs the root token (D32). The value is never in plan or state. | follow-up F1 |
+| Users (`/users`: create, get, list, patch role, display name, disabled) | `ledger_user` and data sources. Ledger has **no delete**: destroy disables the user (documented). Creating or promoting an administrator and re-enabling one needs the root token (D32). | done (ADR-0011) |
+| User passwords (`PUT /users/{id}/password`) | Write-only: `ledger_user_password` with `password_wo` and `password_wo_version` (Terraform 1.11 or later). Needs the root token (D32). The value is never in plan or state. | done (ADR-0011) |
 | API tokens, create (`POST /auth/tokens`) and revoke (`DELETE /tokens/{id}`), list and get (`/tokens`, `tokens:read`) | `ledger_api_token` and a metadata-only `ledger_api_tokens` data source. Tokens cannot be changed, so every change replaces. Creation by an API token needs the **root token of the root account** and creates tokens owned by that account (see the secrets section). | follow-up F2 |
 | Deferral plans and their adjustments (`/deferral-plans`, `/adjustments`, `/adjustments/{adjustment_id}/paid` and `/unpaid`, undo, history) | `ledger_deferral_plan` (create, revise, destroy = undo) and `ledger_deferral_plan_adjustment`, whose `paid` attribute calls the paid and unpaid operations (marking an adjustment paid is the person's own record, not a bank fact); history as a data source. They hang off an **occurrence**, which Ledger derives and may recreate, so a data source to find the occurrence is part of the task. (ADR-0010) | done |
 | Manual payments (`/occurrences/{id}/manual-payments`) | `ledger_manual_payment`: a payment the person records by hand, user data and not a bank fact. Cannot be changed (replace). | follow-up F4 |
@@ -119,7 +119,7 @@ descoped**: when its endpoints land in the OpenAPI document, the provider resour
 
 ## Follow-up work (one worker each)
 
-- **F1** `ledger_user` and `ledger_user_password` (write-only) with data sources; destroy disables.
+- **F1** `ledger_user` and `ledger_user_password` (write-only) with data sources; destroy disables. Done: ADR-0011.
 - **F2** `ledger_api_token` (state exception, replace-on-change) and `ledger_api_tokens`; root-token prerequisite tests.
 - **F3** `ledger_deferral_plan`, `ledger_deferral_plan_adjustment`, history data source, and a way to find an occurrence. Done: ADR-0010.
 - **F4** `ledger_manual_payment` and `ledger_occurrence_status_override`.
@@ -145,16 +145,16 @@ operation; the status is the first word (`done`, `follow-up` or `exception`).
 | `GET /me` | data source `ledger_me` | follow-up F5 |
 | `GET /grants` | data source `ledger_grants` | follow-up F5 |
 | `GET /audit` | data source `ledger_audit_entries` | follow-up F5 |
-| `GET /users` | data sources `ledger_user`, `ledger_users` | follow-up F1 |
-| `POST /users` | `ledger_user` (no delete: destroy disables) | follow-up F1 |
-| `GET /users/{id}` | data sources `ledger_user`, `ledger_users` | follow-up F1 |
-| `PATCH /users/{id}` | `ledger_user` (no delete: destroy disables) | follow-up F1 |
+| `GET /users` | data sources `ledger_user`, `ledger_users` | done (ADR-0011) |
+| `POST /users` | `ledger_user` (no delete: destroy disables) | done (ADR-0011) |
+| `GET /users/{id}` | data sources `ledger_user`, `ledger_users` | done (ADR-0011) |
+| `PATCH /users/{id}` | `ledger_user` (no delete: destroy disables) | done (ADR-0011) |
 | `GET /commitments` | data source `ledger_commitments` (ADR-0006) | done |
 | `POST /commitments` | `ledger_commitment` and its data source (ADR-0006) | done |
 | `GET /commitments/{id}` | `ledger_commitment` and its data source (ADR-0006) | done |
 | `PATCH /commitments/{id}` | `ledger_commitment` and its data source (ADR-0006) | done |
 | `DELETE /commitments/{id}` | `ledger_commitment` and its data source (ADR-0006) | done |
-| `PUT /users/{id}/password` | `ledger_user_password`, write-only | follow-up F1 |
+| `PUT /users/{id}/password` | `ledger_user_password`, write-only | done (ADR-0011) |
 | `POST /auth/sign-in` | interactive sign-in or the person's own credentials (password, recovery sign-in, reauthentication) | exception |
 | `POST /auth/sign-in/second-factor` | interactive sign-in or the person's own credentials (password, recovery sign-in, reauthentication) | exception |
 | `POST /auth/sign-out` | interactive sign-in or the person's own credentials (password, recovery sign-in, reauthentication) | exception |

@@ -173,6 +173,8 @@ func (p *ledgerProvider) Resources(context.Context) []func() resource.Resource {
 		NewCommitmentResource,
 		// Deferral plans (task F3, go-ledger ADR-0050, ADR-0010 of this provider).
 		NewDeferralPlanResource, NewDeferralAdjustmentResource,
+		// Users and their write-only passwords (task F1, ADR-0011).
+		NewUserResource, NewUserPasswordResource,
 	}
 }
 
@@ -184,5 +186,6 @@ func (p *ledgerProvider) DataSources(context.Context) []func() datasource.DataSo
 		NewMerchantDataSource, NewMerchantsDataSource,
 		NewCommitmentDataSource, NewCommitmentsDataSource,
 		NewDeferralPlanDataSource, NewDeferralPlansDataSource, NewDeferralHistoryDataSource, NewOccurrenceDataSource,
+		NewUserDataSource, NewUsersDataSource,
 	}
 }
