@@ -34,15 +34,19 @@ facts**. An occurrence itself is derived by Ledger from a commitment and is neve
    evidence (409 `payment_evidence_required`, surfaced). A read that finds no active override removes the resource from state.
 6. **Occurrence version and concurrency.** An override is written against the occurrence's version, which moves with every payment-state
    change, including those made by other resources in the same run. The provider therefore reads the version immediately before each
-   write and retries a conflict up to five times with a fresh read; the content of the override does not depend on the version. A conflict
-   that persists is reported with a message to refresh (D17). Ordering an override after its payment with `depends_on` also keeps
+   write and retries a conflict up to five times with a fresh read; the content of the override does not depend on the version. A
+   conflict that persists is reported with a message to refresh (D17). **The version is not the guard against out-of-band override
+   changes; the override's content is.** Every attempt of Create, Update and the first undo of Delete re-reads the occurrence and
+   proceeds only while the active override is what Terraform last read (none for Create; status, reason and `set_at` otherwise).
+   Otherwise it fails with the refresh message, so an override changed in the UI between plan and apply is neither overwritten nor
+   undone. Later undo steps of a destroy walk Ledger's history unguarded. Ordering an override after its payment with `depends_on` also keeps
    the read-back `derived_status` current at apply time.
-7. **Finding the occurrence.** The occurrence identifier is an input. Ledger derives occurrences, so it comes from the occurrences
-   API; a data source that finds an occurrence by commitment and due date belongs to the deferral-plan task (ADR-0005, F3), not here.
+7. **Finding the occurrence.** The occurrence identifier is an input. Ledger derives occurrences, so it is found with the
+   `ledger_occurrence` data source (ADR-0010: by identifier, or by commitment and reporting month); descriptions and examples use it.
 
 ## Limitations (open, not silent)
 
-- Verified against a local Ledger built from the pin only (API 1.0.0). The retry of a version conflict is covered by reasoning and
-  by one acceptance run that exposed it, not by a deterministic unit test.
-- A destroy of an override walks Ledger's undo history, so it also removes steps made before the person imported the resource.
+- Verified against a local Ledger built from the pin only (API 1.0.0). The retry of a version conflict, the retry bound, the
+  destroy walk and the out-of-band guard are covered by deterministic fake-server tests (`status_override_unit_test.go`) and by acceptance.
+- A destroy of an override walks Ledger's undo history, so it also removes steps made before the person imported the resource, and there is no redo through the provider. The resource documentation says so and points to `terraform state rm` to stop managing without undoing.
 - `applied`, `derived_status` and `payment_status` can be stale between refreshes; they never cause a plan difference.

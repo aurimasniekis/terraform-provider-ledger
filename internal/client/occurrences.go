@@ -15,27 +15,6 @@ type OverrideState struct {
 	PreviousStatus *string `json:"previous_status"`
 }
 
-// PaymentState is the part of an occurrence's derived payment state the provider reads: the status after and before the
-// override, and the override itself. Amounts and bank evidence counts are derived by Ledger and not mapped.
-type PaymentState struct {
-	Status        string         `json:"status"`
-	DerivedStatus string         `json:"derived_status"`
-	Override      *OverrideState `json:"override"`
-}
-
-// Occurrence is one dated due date of a commitment. Its version also counts every payment-state change, so it is the
-// version a status override is written against.
-type Occurrence struct {
-	ID           string       `json:"id"`
-	CommitmentID string       `json:"commitment_id"`
-	Month        string       `json:"month"`
-	DueDate      string       `json:"due_date"`
-	Amount       Money        `json:"amount"`
-	Version      int64        `json:"version"`
-	CancelledAt  *string      `json:"cancelled_at"`
-	Payment      PaymentState `json:"payment"`
-}
-
 // ManualPayment is a payment the person recorded by hand: user data, never a bank fact. The amount stays an exact decimal
 // string with its currency.
 type ManualPayment struct {
@@ -60,16 +39,6 @@ type ManualPaymentInput struct {
 type manualPaymentPage struct {
 	Items      []ManualPayment `json:"items"`
 	NextCursor *string         `json:"next_cursor"`
-}
-
-// GetOccurrence reads one occurrence with its payment state.
-func (c *Client) GetOccurrence(ctx context.Context, id string) (Occurrence, error) {
-	if err := checkID("occurrence id", id); err != nil {
-		return Occurrence{}, err
-	}
-	var out Occurrence
-	err := c.do(ctx, request{Method: http.MethodGet, Path: "/occurrences/" + id, Out: &out})
-	return out, err
 }
 
 // RecordManualPayment records a payment by hand against an occurrence. It needs no version.

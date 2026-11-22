@@ -57,7 +57,7 @@ func (p *ledgerProvider) Schema(_ context.Context, _ provider.SchemaRequest, res
 			"is an error rather than a fall-through): `endpoint` attribute, then `" + EnvEndpoint + "`; " +
 			"`token` attribute, then `token_file` attribute, then `" + EnvToken + "`, then `" + EnvTokenFile + "`. " +
 			"Blank values count as unset. On configuration the provider reads the API version the server serves and refuses a " +
-			"server on an unsupported major version (ADR-0008).",
+			"server on an unsupported major version.",
 		Attributes: map[string]schema.Attribute{
 			"endpoint": schema.StringAttribute{
 				Optional: true,
@@ -171,6 +171,8 @@ func (p *ledgerProvider) Resources(context.Context) []func() resource.Resource {
 		NewMerchantResource, NewMerchantAliasResource,
 		// Commitments (task T4, decision D6, D9, D14).
 		NewCommitmentResource,
+		// Deferral plans (task F3, go-ledger ADR-0050, ADR-0010 of this provider).
+		NewDeferralPlanResource, NewDeferralAdjustmentResource,
 		NewManualPaymentResource, NewStatusOverrideResource,
 	}
 }
@@ -182,6 +184,7 @@ func (p *ledgerProvider) DataSources(context.Context) []func() datasource.DataSo
 		NewObjectOrganisationDataSource, NewBucketMembersDataSource,
 		NewMerchantDataSource, NewMerchantsDataSource,
 		NewCommitmentDataSource, NewCommitmentsDataSource,
+		NewDeferralPlanDataSource, NewDeferralPlansDataSource, NewDeferralHistoryDataSource, NewOccurrenceDataSource,
 		NewManualPaymentDataSource, NewManualPaymentsDataSource, NewStatusOverrideDataSource,
 	}
 }

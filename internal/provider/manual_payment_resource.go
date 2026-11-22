@@ -43,8 +43,8 @@ func (r *manualPaymentResource) Schema(_ context.Context, _ resource.SchemaReque
 			"**Records are not edited**: a change to any attribute destroys the record and records a new one. Destroying " +
 			"deletes the record (Ledger keeps a soft-deleted row for its audit trail) and the occurrence's status is derived " +
 			"again from the evidence that remains. A `paid` status override stays recorded but has no effect without evidence.\n\n" +
-			"The occurrence is derived by Ledger from the commitment, so its identifier is taken from the occurrences API " +
-			"(`GET /occurrences?month=…&commitment_id=…`). Ledger may later replace this record by a confirmed bank match " +
+			"The occurrence is derived by Ledger from the commitment, so its identifier is found with the `ledger_occurrence` data source. " +
+			"Ledger may later replace this record by a confirmed bank match " +
 			"(`replaced_by_match_id`); the record is then kept but no longer counts, and this resource shows no difference.\n\n" +
 			"Import with `<occurrence_id>/<payment_id>`: `terraform import ledger_manual_payment.example <occurrence_id>/<payment_id>`.",
 		Attributes: map[string]schema.Attribute{

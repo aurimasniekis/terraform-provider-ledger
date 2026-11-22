@@ -40,7 +40,7 @@ Management API for it is served by go-ledger's `work` branch.
 9. **Pin.** `internal/ledgertest/ledger.pin` moved from `fad378e` to go-ledger commit `760bba6` (still API 1.0.0), a commit on
    `work` that serves the organisation routes together with their HTTP tests and the gates. It is not the first commit
    with those routes: they arrived with the organisation model merge `8dfb8a0`, and `760bba6` was chosen as a later
-   commit that also carries the HTTP tests. This supersedes the commit named in ADR-0002 item 1. The pin has moved on
+   commit that also carries the gate tests. This supersedes the commit named in ADR-0002 item 1. The pin has moved on
    since; `internal/ledgertest/ledger.pin` is authoritative.
 
 ## Limitations (open, not silent)

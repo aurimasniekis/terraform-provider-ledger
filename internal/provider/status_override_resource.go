@@ -49,9 +49,12 @@ func (r *statusOverrideResource) Schema(_ context.Context, _ resource.SchemaRequ
 			"to take it over. Changing `status` or `reason` replaces the override in place. **Destroying undoes the override " +
 			"history step by step until no override is active** (Ledger's undo restores the override a change replaced), so " +
 			"the derived status applies again.\n\n" +
-			"The occurrence is derived by Ledger from the commitment, so its identifier is taken from the occurrences API. " +
-			"Changes are sent against the occurrence's current version, which also moves with every payment-state change; a " +
-			"concurrent change fails with a message to refresh instead of overwriting (D17).\n\n" +
+			"The occurrence is derived by Ledger from the commitment, so its identifier is found with the `ledger_occurrence` data source. " +
+			"Changes are sent against the occurrence's current version, which also moves with every payment-state change, so " +
+			"a version conflict is retried; but the override itself is compared with what Terraform last read (status, reason and `set_at`), " +
+			"and a change made outside Terraform fails with a message to refresh instead of being overwritten or undone (D17).\n\n" +
+			"**Destroying an imported override also undoes the earlier steps**, including corrections you made before importing it. " +
+			"Use `terraform state rm` to stop managing it without undoing anything.\n\n" +
 			"Import with the occurrence identifier: `terraform import ledger_occurrence_status_override.example <occurrence_id>`.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{
@@ -109,12 +112,10 @@ func (r *statusOverrideResource) Create(ctx context.Context, req resource.Create
 		return
 	}
 	if occ.Payment.Override != nil {
-		resp.Diagnostics.AddError("The occurrence already has a status override",
-			fmt.Sprintf("Occurrence %s already has an active override (%s). Import it with terraform import to manage it, "+
-				"or undo it first; Terraform will not replace an override it did not create.", id, occ.Payment.Override.Status))
+		resp.Diagnostics.AddError("The occurrence already has a status override", overrideExistsDetail(id, occ.Payment.Override.Status))
 		return
 	}
-	r.put(ctx, plan, &resp.State, &resp.Diagnostics, "Setting the status override failed")
+	r.put(ctx, plan, nil, &resp.State, &resp.Diagnostics, "Setting the status override failed")
 }
 
 // versionRetries bounds how often a write is retried against a fresh occurrence version. The occurrence's version moves with
@@ -123,10 +124,43 @@ func (r *statusOverrideResource) Create(ctx context.Context, req resource.Create
 // depend on the version, only the guard does.
 const versionRetries = 5
 
-func (r *statusOverrideResource) put(ctx context.Context, plan statusOverrideModel, state *tfsdk.State, diags *diag.Diagnostics, summary string) {
+func overrideExistsDetail(id, status string) string {
+	return fmt.Sprintf("Occurrence %s already has an active override (%s). Import it with terraform import to manage it, "+
+		"or undo it first; Terraform will not replace an override it did not create.", id, status)
+}
+
+// overrideChangedDetail is the refusal when the override is not what Terraform last saw.
+func overrideChangedDetail(id string) string {
+	return fmt.Sprintf("The status override of occurrence %s was changed outside Terraform since it was last read. "+
+		"Run terraform plan (refresh) and apply again; Terraform will not overwrite or undo a change it has not seen.", id)
+}
+
+// overrideMatches reports whether the occurrence's active override is what Terraform last read: nothing when expect is
+// nil (Create), otherwise the same status, reason and set_at. A retry with a fresh version is only safe while this holds;
+// the version alone also moves with payment-state changes, which are not a reason to refuse.
+func overrideMatches(o client.Occurrence, expect *statusOverrideModel) bool {
+	ov := o.Payment.Override
+	if expect == nil {
+		return ov == nil
+	}
+	return ov != nil && ov.Status == expect.Status.ValueString() && ov.Reason == expect.Reason.ValueString() &&
+		ov.SetAt == expect.SetAt.ValueString()
+}
+
+// put writes the override against a freshly read occurrence version. expect is the override Terraform last saw (nil: none);
+// each attempt re-checks it, so a change made outside Terraform fails with a refresh message instead of being overwritten (D17).
+func (r *statusOverrideResource) put(ctx context.Context, plan statusOverrideModel, expect *statusOverrideModel, state *tfsdk.State, diags *diag.Diagnostics, summary string) {
 	id := plan.OccurrenceID.ValueString()
 	for attempt := 0; ; attempt++ {
 		occ, err := r.client.GetOccurrence(ctx, id)
+		if err == nil && !overrideMatches(occ, expect) {
+			if expect == nil {
+				diags.AddError(summary, overrideExistsDetail(id, occ.Payment.Override.Status))
+			} else {
+				diags.AddError(summary, overrideChangedDetail(id))
+			}
+			return
+		}
 		if err == nil {
 			occ, err = r.client.SetStatusOverride(ctx, id, occ.Version, plan.Status.ValueString(), plan.Reason.ValueString())
 		}
@@ -180,7 +214,12 @@ func (r *statusOverrideResource) Update(ctx context.Context, req resource.Update
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	r.put(ctx, plan, &resp.State, &resp.Diagnostics, "Changing the status override failed")
+	var st statusOverrideModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &st)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	r.put(ctx, plan, &st, &resp.State, &resp.Diagnostics, "Changing the status override failed")
 }
 
 func (r *statusOverrideResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
@@ -191,7 +230,8 @@ func (r *statusOverrideResource) Delete(ctx context.Context, req resource.Delete
 	}
 	id := st.OccurrenceID.ValueString()
 	conflicts := 0
-	for range maxOverrideUndos + versionRetries {
+	guarded := true // the first undo must remove the override Terraform last saw; later steps walk Ledger's history
+	for undos := 0; undos < maxOverrideUndos; {
 		occ, err := r.client.GetOccurrence(ctx, id)
 		if err != nil {
 			if !client.IsNotFound(err) {
@@ -200,6 +240,10 @@ func (r *statusOverrideResource) Delete(ctx context.Context, req resource.Delete
 			return
 		}
 		if occ.Payment.Override == nil {
+			return
+		}
+		if guarded && !overrideMatches(occ, &st) {
+			resp.Diagnostics.AddError("Undoing the status override failed", overrideChangedDetail(id))
 			return
 		}
 		if _, err := r.client.UndoStatusOverride(ctx, id, occ.Version); err != nil {
@@ -216,6 +260,8 @@ func (r *statusOverrideResource) Delete(ctx context.Context, req resource.Delete
 			}
 			return
 		}
+		guarded = false
+		undos++
 	}
 	resp.Diagnostics.AddError("The status override is still active",
 		fmt.Sprintf("Ledger still reports an override on occurrence %s after %d undo steps. Undo it in Ledger, or remove the resource with terraform state rm.", id, maxOverrideUndos))

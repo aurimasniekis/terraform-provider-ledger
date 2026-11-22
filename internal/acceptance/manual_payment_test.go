@@ -134,7 +134,7 @@ resource "ledger_occurrence_status_override" "settle" {
 			// A paid override needs evidence: Ledger refuses it, and nothing is left behind.
 			{Config: paymentConfig(occID, "", strings.ReplaceAll(override("paid", "cash"), afterPayment, "")), ExpectError: regexp.MustCompile("payment_evidence_required")},
 			// A payment in another currency is never converted: Ledger refuses it.
-			{Config: paymentConfig(occID, payments("40.00", "USD"), ""), ExpectError: regexp.MustCompile("Recording the manual payment failed")},
+			{Config: paymentConfig(occID, payments("40.00", "USD"), ""), ExpectError: regexp.MustCompile(`(?s)Recording the manual payment failed.*never\s+converted`)},
 			// A partial payment keeps its scale and leaves the occurrence partially paid; the override says unpaid.
 			{
 				Config: paymentConfig(occID, payments("40.500", "EUR"), override("unpaid", "disputed with landlord")),
@@ -209,6 +209,9 @@ resource "ledger_occurrence_status_override" "settle" {
 				PlanOnly:           true,
 				ExpectNonEmptyPlan: true,
 			},
+			// Applying after the refresh puts the override back (the guard compares with the refreshed state), so the final
+			// destroy undoes an override Terraform has seen; it would refuse one changed behind its back (D17).
+			{Config: paymentConfig(occID, payments("100.00", "EUR"), override("paid", "landlord accepted the part payment")), Check: statusIs("paid", "paid")},
 		},
 	})
 
@@ -226,6 +229,17 @@ resource "ledger_occurrence_status_override" "settle" {
 	}
 	resource.Test(t, resource.TestCase{
 		ProtoV6ProviderFactories: providerFactories,
+		// The imported override is undone by destroy.
+		CheckDestroy: func(*terraform.State) error {
+			o, err := c.GetOccurrence(ctx, occID)
+			if err != nil {
+				return err
+			}
+			if o.Payment.Override != nil {
+				return fmt.Errorf("imported override still active after destroy: %+v", o.Payment.Override)
+			}
+			return nil
+		},
 		Steps: []resource.TestStep{
 			{Config: override("unpaid", "taken over"), ExpectError: regexp.MustCompile("already has a status override")},
 			{Config: override("unpaid", "set by hand"), ResourceName: settle, ImportState: true, ImportStatePersist: true, ImportStateId: occID},

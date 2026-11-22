@@ -6,7 +6,7 @@ description: |-
   A payment you made by hand and recorded against one occurrence of a commitment. It is user data, kept apart from bank facts: it never changes or hides a bank transaction, and Ledger counts it as payment evidence (the occurrence becomes paid when the payments in its currency cover its amount, partially paid below that). Recording one makes the occurrence immutable to commitment edits and the commitment undeletable while it stands.
   The amount is an exact decimal string and must be in the occurrence's own currency: Ledger never converts amounts, and refuses a payment in another currency. paid_on must not be after today in Ledger's reporting time zone.
   Records are not edited: a change to any attribute destroys the record and records a new one. Destroying deletes the record (Ledger keeps a soft-deleted row for its audit trail) and the occurrence's status is derived again from the evidence that remains. A paid status override stays recorded but has no effect without evidence.
-  The occurrence is derived by Ledger from the commitment, so its identifier is taken from the occurrences API (GET /occurrences?month=…&commitment_id=…). Ledger may later replace this record by a confirmed bank match (replaced_by_match_id); the record is then kept but no longer counts, and this resource shows no difference.
+  The occurrence is derived by Ledger from the commitment, so its identifier is found with the ledger_occurrence data source. Ledger may later replace this record by a confirmed bank match (replaced_by_match_id); the record is then kept but no longer counts, and this resource shows no difference.
   Import with <occurrence_id>/<payment_id>: terraform import ledger_manual_payment.example <occurrence_id>/<payment_id>.
 ---
 
@@ -18,17 +18,21 @@ A payment you made by hand and recorded against one occurrence of a commitment. 
 
 **Records are not edited**: a change to any attribute destroys the record and records a new one. Destroying deletes the record (Ledger keeps a soft-deleted row for its audit trail) and the occurrence's status is derived again from the evidence that remains. A `paid` status override stays recorded but has no effect without evidence.
 
-The occurrence is derived by Ledger from the commitment, so its identifier is taken from the occurrences API (`GET /occurrences?month=…&commitment_id=…`). Ledger may later replace this record by a confirmed bank match (`replaced_by_match_id`); the record is then kept but no longer counts, and this resource shows no difference.
+The occurrence is derived by Ledger from the commitment, so its identifier is found with the `ledger_occurrence` data source. Ledger may later replace this record by a confirmed bank match (`replaced_by_match_id`); the record is then kept but no longer counts, and this resource shows no difference.
 
 Import with `<occurrence_id>/<payment_id>`: `terraform import ledger_manual_payment.example <occurrence_id>/<payment_id>`.
 
 ## Example Usage
 
 ```terraform
-# The occurrence is one due date of a commitment. Ledger derives it, so take its identifier from the occurrences API
-# (GET /occurrences?month=2026-03&commitment_id=...).
+# The occurrence is one due date of a commitment. Ledger derives it, so find it with the ledger_occurrence data source.
+data "ledger_occurrence" "march" {
+  commitment_id = ledger_commitment.rent.id
+  month         = "2026-03"
+}
+
 resource "ledger_manual_payment" "march_rent" {
-  occurrence_id = "01JD3Y4C8V9M2Q7W5R6T0XZBNA"
+  occurrence_id = data.ledger_occurrence.march.id
   amount        = "850.00" # an exact decimal string, in the occurrence's currency
   currency      = "EUR"
   paid_on       = "2026-03-02"

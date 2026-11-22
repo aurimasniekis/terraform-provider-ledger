@@ -72,6 +72,16 @@ func (r *definitionResource) archiveChildrenNote() string {
 		"because setting `archived = true` on a parent and its children in one apply fails when the parent is archived first."
 }
 
+// reassignNote describes what happens to the assignments that reassign_to moves. Bucket memberships have no origin in Ledger
+// (bucket_members is not origin-tracked), so every moved membership is recorded as added by the person deleting the bucket.
+func (r *definitionResource) reassignNote() string {
+	if r.typeName == "bucket" {
+		return "Every membership moved to the target is recorded as added by the person deleting this bucket, because bucket memberships " +
+			"carry no origin (under Terraform, the API token's user). An object already in the target bucket keeps its existing membership. "
+	}
+	return "Assignments the person made (origin user) stay the person's; assignments made by a rule or a model keep their origin. "
+}
+
 func (r *definitionResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	attrs := map[string]schema.Attribute{
 		"id": schema.StringAttribute{
@@ -97,7 +107,7 @@ func (r *definitionResource) Schema(_ context.Context, _ resource.SchemaRequest,
 			Optional: true,
 			MarkdownDescription: "Used only when this resource is destroyed: the identifier of an active " + r.typeName + " that existing assignments " +
 				"move to. Without it, destroying a " + r.typeName + " that is still assigned fails with `definition_in_use`. " +
-				"Assignments the person made (origin user) stay the person's; assignments made by a rule or a model keep their origin. " +
+				r.reassignNote() +
 				"Not read back from Ledger, so it is empty after an import.",
 			Validators: []validator.String{idValidator()},
 		},

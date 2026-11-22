@@ -6,7 +6,8 @@ description: |-
   Your manual override of one occurrence's payment status, with the reason (Ledger decision D7). It is a user correction kept apart from bank facts: it never changes a bank transaction or the evidence, and the status Ledger derives from the evidence and dates stays visible as derived_status.
   paid marks the occurrence settled although the counted evidence does not cover it (for example a payment in another currency, which is never converted). It needs payment evidence: without a manual payment or a confirmed bank match Ledger refuses it with payment_evidence_required. unpaid says the evidence does not settle it, and the status follows the dates. If the evidence is later removed, a paid override stays recorded with applied = false and has no effect.
   One override per occurrence. Creating refuses an occurrence that already has an active override: import it to take it over. Changing status or reason replaces the override in place. Destroying undoes the override history step by step until no override is active (Ledger's undo restores the override a change replaced), so the derived status applies again.
-  The occurrence is derived by Ledger from the commitment, so its identifier is taken from the occurrences API. Changes are sent against the occurrence's current version, which also moves with every payment-state change; a concurrent change fails with a message to refresh instead of overwriting (D17).
+  The occurrence is derived by Ledger from the commitment, so its identifier is found with the ledger_occurrence data source. Changes are sent against the occurrence's current version, which also moves with every payment-state change, so a version conflict is retried; but the override itself is compared with what Terraform last read (status, reason and set_at), and a change made outside Terraform fails with a message to refresh instead of being overwritten or undone (D17).
+  Destroying an imported override also undoes the earlier steps, including corrections you made before importing it. Use terraform state rm to stop managing it without undoing anything.
   Import with the occurrence identifier: terraform import ledger_occurrence_status_override.example <occurrence_id>.
 ---
 
@@ -18,7 +19,9 @@ Your manual override of one occurrence's payment status, with the reason (Ledger
 
 **One override per occurrence.** Creating refuses an occurrence that already has an active override: import it to take it over. Changing `status` or `reason` replaces the override in place. **Destroying undoes the override history step by step until no override is active** (Ledger's undo restores the override a change replaced), so the derived status applies again.
 
-The occurrence is derived by Ledger from the commitment, so its identifier is taken from the occurrences API. Changes are sent against the occurrence's current version, which also moves with every payment-state change; a concurrent change fails with a message to refresh instead of overwriting (D17).
+The occurrence is derived by Ledger from the commitment, so its identifier is found with the `ledger_occurrence` data source. Changes are sent against the occurrence's current version, which also moves with every payment-state change, so a version conflict is retried; but the override itself is compared with what Terraform last read (status, reason and `set_at`), and a change made outside Terraform fails with a message to refresh instead of being overwritten or undone (D17).
+
+**Destroying an imported override also undoes the earlier steps**, including corrections you made before importing it. Use `terraform state rm` to stop managing it without undoing anything.
 
 Import with the occurrence identifier: `terraform import ledger_occurrence_status_override.example <occurrence_id>`.
 
