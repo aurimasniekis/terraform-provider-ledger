@@ -1,0 +1,21 @@
+# Releasing
+
+Releases are cut by pushing a version tag. `.github/workflows/release.yml` then builds, checksums, signs and publishes a GitHub release with GoReleaser (see [ADR-0002](docs/decisions/0002-release-workflow.md)).
+
+## Prerequisites
+
+- Repository secrets `GPG_PRIVATE_KEY` and `PASSPHRASE` (the key already registered for the Terraform Registry namespace). Never print or commit them.
+- `make check` passes on the commit to be tagged. CI also runs `make release-check release-snapshot`.
+
+## Steps
+
+1. Check locally, without secrets or network publication: `make release-check` and `make release-snapshot` (output in `dist/`, which is git-ignored).
+2. Tag a commit on the default branch: `git tag -s vX.Y.Z -m "vX.Y.Z"` (the Registry needs a semantic version tag with the `v` prefix), then push the tag.
+3. Watch the `release` workflow. It must produce zips, `terraform-provider-ledger_X.Y.Z_SHA256SUMS`, its `.sig`, and `terraform-provider-ledger_X.Y.Z_manifest.json`.
+4. Verify the signature: `gpg --verify terraform-provider-ledger_X.Y.Z_SHA256SUMS.sig terraform-provider-ledger_X.Y.Z_SHA256SUMS`, then `sha256sum -c` on the zips you use.
+5. **First release only: publishing on the Terraform Registry is a manual operator step** after the first signed tagged release (add the provider on the Registry with the namespace's signing key). Tell the infra space when that release exists. Later tags are picked up by the Registry automatically.
+
+## Notes
+
+- A failed release can be re-run; a published tag must not be moved. Fix forward with a new tag.
+- Not yet covered: dependency licence notices in the archives and an SBOM (listed as open in ADR-0002).

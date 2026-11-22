@@ -4,4 +4,6 @@ Significant tradeoffs are recorded here as numbered ADRs. Start from [0000-templ
 
 - [ADR-0001: Provider conventions, configuration precedence and CI](0001-provider-conventions.md)
 
+- [ADR-0002: Release workflow and signing](0002-release-workflow.md)
+
 An accepted ADR is not rewritten. Supersede it with a new ADR and link the two.
