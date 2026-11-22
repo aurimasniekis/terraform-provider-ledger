@@ -21,7 +21,10 @@ Secrets are write-only in this provider (ADR-0005).
    importing it (`terraform import`) and setting `disabled = false`. Ledger's refusal to leave no enabled administrator (409) is
    shown with a sentence of advice.
 3. **Import** by identifier, for users and nothing else. A created user is tracked in state before an optional "disabled" step, so a
-   failure there taints it.
+   failure there taints it. The taint is kept on purpose: Terraform core rejects saving `disabled = false` for a planned
+   `disabled = true`, so state cannot record the user as disabled. The user then exists and is enabled. A plain re-apply would replace
+   it, disabling the old user and then failing because the username is taken. Recovery is `terraform untaint` and then apply, which
+   disables the user in place, or `terraform state rm` and `terraform import` by identifier, then apply.
 4. **The password is write-only.** `ledger_user_password` has `user_id` (replaces on change), `password_wo` (write-only, sensitive,
    required: read from the configuration during create and update, never in plan or state; Terraform 1.11 or later) and
    `password_wo_version` (stored; raising it is how a new password is applied, because Terraform cannot see a write-only value change).
