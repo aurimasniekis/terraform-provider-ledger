@@ -19,7 +19,9 @@ Management API for it is served by go-ledger's `work` branch.
 2. **Archive first.** Definitions have `archived` (default `false`), applied through the archive and unarchive routes
    (history stays). Destroy deletes; when the API refuses with `definition_in_use` the error tells the person to archive or
    to set `reassign_to`. `reassign_to` is a destroy-time argument kept in state and never read back (so it is empty after
-   an import); the API moves the assignments and records them as the person's.
+   an import); the API moves the assignments; the person's own (origin user) stay the person's, while assignments made by a rule or a
+   model keep their origin. Archiving a category that still has active children is refused (409), so a parent and its
+   children cannot be archived in one apply: the children are archived first and the parent in a later apply.
 3. **Optimistic concurrency.** Changes and deletes send the version Terraform last read as `If-Match`. A stale version is a
    failure with a message to refresh, never an overwrite (D17). The provider does not retry on conflict.
 4. **Drift.** Read maps 404 to "removed". An assignment resource owns only the person's own, direct decision: if the
@@ -35,8 +37,11 @@ Management API for it is served by go-ledger's `work` branch.
 7. **Identifiers** are validated as ULIDs before they reach a URL path, so a value can never alter the path.
 8. **Client.** Hand-written methods in `internal/client` (the OpenAPI document is the contract, as in go-ledger ADR-0011);
    error bodies that are not the JSON envelope are never echoed.
-9. **Pin.** `internal/ledgertest/ledger.pin` moves from `fad378e` to go-ledger commit `760bba6` (still API 1.0.0), the first
-   one on `work` that serves the organisation routes. This supersedes the commit named in ADR-0002 item 1.
+9. **Pin.** `internal/ledgertest/ledger.pin` moved from `fad378e` to go-ledger commit `760bba6` (still API 1.0.0), a commit on
+   `work` that serves the organisation routes together with their HTTP tests and the gates. It is not the first commit
+   with those routes: they arrived with the organisation model merge `8dfb8a0`, and `760bba6` was chosen as a later
+   commit that also carries the HTTP tests. This supersedes the commit named in ADR-0002 item 1. The pin has moved on
+   since; `internal/ledgertest/ledger.pin` is authoritative.
 
 ## Limitations (open, not silent)
 
@@ -50,7 +55,8 @@ Management API for it is served by go-ledger's `work` branch.
 - No retry of reads: D17 allows idempotent-read retries (at most 3, with backoff); the shared client does not implement them
   yet and the task did not add them.
 - The acceptance job needs a Terraform CLI. `terraform-plugin-testing` uses `TF_ACC_TERRAFORM_PATH` or a `terraform` on PATH
-  and otherwise downloads one, which is a network call at test time; the CI acceptance job has not been changed or run
-  here.
+  and otherwise downloads one, which is a network call at test time. The CI acceptance job sets
+  `TF_ACC_TERRAFORM_VERSION=1.11.4` (the version tfplugindocs is pinned to) so the CLI is fixed; locally the `terraform`
+  on PATH is used.
 - Verified against a local Ledger built from the pin only; the version-conflict path through Terraform (an update racing
   an out-of-band change) is covered by the client unit tests and the fake server, not by the acceptance run.
