@@ -70,7 +70,7 @@ func userHint(err error) string {
 	case client.IsVersionConflict(err):
 		return versionConflictDetail(err)
 	case client.HasCode(err, client.CodeRootTokenRequired):
-		return err.Error() + " This operation needs the root token of the root account (create it on the Ledger host with `ledger token create --create administrator --root`); " +
+		return err.Error() + " This operation needs the root token of the root account (create it on the Ledger host, with `ledger serve` stopped, using `ledger token create --root <root-account-username>`); " +
 			"configure the provider with that token for this change."
 	case client.HasCode(err, client.CodeConflict):
 		return err.Error() + " Ledger refuses a change that leaves no enabled administrator, and a username that is already taken."

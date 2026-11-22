@@ -60,7 +60,8 @@ func (r *userPasswordResource) Schema(_ context.Context, _ resource.SchemaReques
 				MarkdownDescription: "The new password. Write-only: never stored in the plan or the state, and not shown. Supply it from an ephemeral source, not a literal checked into version control. " +
 					"A change to this value alone does nothing; raise `password_wo_version` to apply it."},
 			"password_wo_version": schema.Int64Attribute{Optional: true, Validators: []validator.Int64{int64validator.AtLeast(0)},
-				MarkdownDescription: "A number you raise to set the password again. Terraform stores it (it is not secret) and calls Ledger when it changes."},
+				MarkdownDescription: "A number you raise to set the password again. Terraform stores it (it is not secret) and calls Ledger when it changes. " +
+					"Optional, but without it the password can only be set again by replacing the resource. Removing it after it was set counts as a change: the password is sent again, which ends that user's sessions."},
 			"sessions_ended": schema.Int64Attribute{Computed: true,
 				MarkdownDescription: "How many sessions the last password change ended."},
 		},
