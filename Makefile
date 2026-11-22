@@ -33,6 +33,7 @@ test: ## unit tests (no network services) with the race detector (acceptance tes
 acceptance: ## acceptance tests against a local Ledger; needs LEDGER_ACC_SOURCE=<go-ledger checkout at the pinned commit>
 	@test -n "$(LEDGER_ACC_SOURCE)" || { echo "set LEDGER_ACC_SOURCE to a go-ledger checkout at the commit in internal/ledgertest/ledger.pin"; exit 1; }
 	TF_ACC=1 LEDGER_ACC_SOURCE="$(LEDGER_ACC_SOURCE)" $(GO) test -count=1 -timeout 15m ./internal/acceptance/...
+	TF_ACC=1 LEDGER_ACC_SOURCE="$(LEDGER_ACC_SOURCE)" $(GO) test -count=1 -timeout 15m -run TestStartRecoversFromPortCollision ./internal/ledgertest/
 
 # The coverage inventory (docs/decisions/0005) is compared with the OpenAPI document of a go-ledger checkout at the commit it names.
 inventory-check: ## compare ADR-0005's operation index with go-ledger; needs LEDGER_INVENTORY_SOURCE=<go-ledger checkout at the commit named in the ADR>

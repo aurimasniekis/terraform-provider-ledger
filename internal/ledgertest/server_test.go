@@ -39,6 +39,18 @@ func TestVerifyOurs(t *testing.T) {
 			t.Fatalf("want a 401 error, got %v", err)
 		}
 	})
+	t.Run("rejects a process that exited after answering", func(t *testing.T) {
+		exiting := make(chan struct{})
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			close(exiting)
+			w.WriteHeader(http.StatusOK)
+		}))
+		t.Cleanup(srv.Close)
+		err := VerifyOurs(context.Background(), srv.URL, "ours", exiting)
+		if err == nil || !strings.Contains(err.Error(), "after answering") {
+			t.Fatalf("want an exited-after-answering error, got %v", err)
+		}
+	})
 	t.Run("rejects an exited process even when something answers", func(t *testing.T) {
 		srv := meServer(t, "ours")
 		if err := VerifyOurs(context.Background(), srv.URL, "ours", closed); err == nil {
