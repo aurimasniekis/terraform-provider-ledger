@@ -32,7 +32,7 @@ resource "ledger_bucket" "fixed_costs" {
 ### Optional
 
 - `archived` (Boolean) Whether the bucket is archived. Archiving keeps the bucket and every assignment to it (history stays readable) and stops anything new from using it. Archive instead of destroying when anything is assigned. Defaults to `false`.
-- `reassign_to` (String) Used only when this resource is destroyed: the identifier of an active bucket that existing assignments move to. Without it, destroying a bucket that is still assigned fails with `definition_in_use`. Assignments the person made (origin user) stay the person's; assignments made by a rule or a model keep their origin. Not read back from Ledger, so it is empty after an import.
+- `reassign_to` (String) Used only when this resource is destroyed: the identifier of an active bucket that existing assignments move to. Without it, destroying a bucket that is still assigned fails with `definition_in_use`. Every membership moved to the target is recorded as added by the person deleting this bucket, because bucket memberships carry no origin. Not read back from Ledger, so it is empty after an import.
 
 ### Read-Only
 
