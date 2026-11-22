@@ -1,10 +1,8 @@
 // Package client holds the HTTP client the provider uses to reach a Ledger server.
 //
-// EXTENSION POINT: Ledger's Management API does not exist yet, so this package only carries the connection settings
-// and an authenticated *http.Client. It deliberately has no API methods and no endpoint paths. The resource tasks
-// (the Management API task and the Terraform resource coverage task, decision D18) add typed methods here once the
-// versioned OpenAPI description exists.
-// TODO(management-api): generate or hand-write the typed client from the served OpenAPI document.
+// This file carries the connection settings and an authenticated *http.Client. api.go holds the request helper and the
+// error type, and one file per area of the Management API holds its typed methods (organisation.go so far). The
+// methods are hand-written against the served OpenAPI document; each resource task adds its own.
 package client
 
 import (

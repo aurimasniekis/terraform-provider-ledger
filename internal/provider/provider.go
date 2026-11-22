@@ -1,9 +1,8 @@
 // Package provider implements the Ledger Terraform provider with the Terraform Plugin Framework.
 //
-// EXTENSION POINT: no resources or data sources exist yet because Ledger's Management API does not exist yet.
 // Each configurable object (decision D18) is added to Resources and DataSources by the Terraform resource tasks, and
-// receives the *client.Client built in Configure through its Configure method.
-// TODO(management-api): register resources and data sources once the versioned OpenAPI description is served.
+// receives the *client.Client built in Configure through its Configure method. The organisation objects (categories,
+// labels, buckets and their assignments, task T3) are registered; the remaining objects are task T4.
 package provider
 
 import (
@@ -140,11 +139,18 @@ func (p *ledgerProvider) Configure(ctx context.Context, req provider.ConfigureRe
 }
 
 func (p *ledgerProvider) Resources(context.Context) []func() resource.Resource {
-	// TODO(management-api): add one constructor per configurable object (decision D18).
-	return nil
+	// Each remaining configurable object (decision D18) adds its constructors here.
+	return []func() resource.Resource{
+		// Organisation (task T3, decision D12, go-ledger ADR-0053).
+		NewCategoryResource, NewLabelResource, NewBucketResource,
+		NewCategoryAssignmentResource, NewLabelAssignmentResource, NewBucketMemberResource,
+	}
 }
 
 func (p *ledgerProvider) DataSources(context.Context) []func() datasource.DataSource {
-	// TODO(management-api): add data sources alongside the resources.
-	return nil
+	return []func() datasource.DataSource{
+		NewCategoryDataSource, NewLabelDataSource, NewBucketDataSource,
+		NewCategoriesDataSource, NewLabelsDataSource, NewBucketsDataSource,
+		NewObjectOrganisationDataSource, NewBucketMembersDataSource,
+	}
 }
