@@ -79,7 +79,7 @@ func (f *fakeAssignments) set(fn func()) { f.mu.Lock(); defer f.mu.Unlock(); fn(
 func assignmentTestCase(t *testing.T, f *fakeAssignments, steps []resource.TestStep) {
 	t.Helper()
 	requireTerraform(t)
-	srv := httptest.NewServer(f)
+	srv := httptest.NewServer(withAPIDocument(f))
 	t.Cleanup(srv.Close)
 	t.Setenv("LEDGER_ENDPOINT", srv.URL)
 	t.Setenv("LEDGER_TOKEN", "unit-token")
