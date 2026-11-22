@@ -42,17 +42,17 @@ func clientFromProviderData(data any, diags *diag.Diagnostics) *client.Client {
 
 // normalisedNameValidator rejects a name the server would change: Ledger trims names and collapses white space, so
 // a name that differs after that could never match what it reads back and would show a permanent difference.
-type normalisedNameValidator struct{}
+type normalisedNameValidator struct{ max int }
 
-func (normalisedNameValidator) Description(context.Context) string {
-	return "a name of 1 to 80 characters without leading, trailing or repeated white space"
+func (v normalisedNameValidator) Description(context.Context) string {
+	return fmt.Sprintf("a name of 1 to %d characters without leading, trailing or repeated white space", v.max)
 }
 
 func (v normalisedNameValidator) MarkdownDescription(ctx context.Context) string {
 	return v.Description(ctx)
 }
 
-func (normalisedNameValidator) ValidateString(_ context.Context, req validator.StringRequest, resp *validator.StringResponse) {
+func (v normalisedNameValidator) ValidateString(_ context.Context, req validator.StringRequest, resp *validator.StringResponse) {
 	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
 		return
 	}
@@ -63,13 +63,20 @@ func (normalisedNameValidator) ValidateString(_ context.Context, req validator.S
 				"runs of white space. Write it the way Ledger stores it.")
 		return
 	}
-	if n := utf8.RuneCountInString(s); n < 1 || n > maxDefinitionNameLength {
+	if n := utf8.RuneCountInString(s); n < 1 || n > v.max {
 		resp.Diagnostics.AddAttributeError(req.Path, "Invalid name length",
-			fmt.Sprintf("The name must be 1 to %d characters, got %d.", maxDefinitionNameLength, n))
+			fmt.Sprintf("The name must be 1 to %d characters, got %d.", v.max, n))
 	}
 }
 
-func nameValidator() validator.String { return normalisedNameValidator{} }
+func nameValidator() validator.String { return normalisedNameValidator{max: maxDefinitionNameLength} }
+
+// maxMerchantNameLength is the longest merchant display name or alias Ledger accepts (characters; ADR-0058 of go-ledger).
+const maxMerchantNameLength = 200
+
+func merchantNameValidator() validator.String {
+	return normalisedNameValidator{max: maxMerchantNameLength}
+}
 
 // attrGetter is satisfied by tfsdk.Plan, tfsdk.State and tfsdk.Config.
 type attrGetter interface {

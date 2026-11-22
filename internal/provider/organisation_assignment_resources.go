@@ -32,9 +32,9 @@ var (
 	_ resource.ResourceWithImportState = (*bucketMemberResource)(nil)
 )
 
-var assignableObjectTypes = []client.ObjectType{client.ObjectTransaction, client.ObjectCommitment, client.ObjectAccount}
+var assignableObjectTypes = []client.ObjectType{client.ObjectTransaction, client.ObjectCommitment, client.ObjectAccount, client.ObjectMerchant}
 
-const objectTypeDoc = "The kind of object: `transaction`, `commitment` or `account`. Merchants are not supported yet: Ledger identifies them by a provisional name key that is expected to become a record identifier. Changing it replaces the resource."
+const objectTypeDoc = "The kind of object: `transaction`, `commitment`, `account` or `merchant`. A merchant is addressed by its record identifier (`ledger_merchant`) and needs an API token with the administrator-only `merchants:read` and `merchants:write` grants, because merchant names derive from bank text; an archived merchant takes no new assignment. Buckets never hold merchants. Changing it replaces the resource."
 
 // ---- ledger_category_assignment ----
 
@@ -161,7 +161,7 @@ func (r *categoryAssignmentResource) ImportState(ctx context.Context, req resour
 		return
 	}
 	if !validAssignable(parts[0]) || !client.ValidID(parts[1]) {
-		resp.Diagnostics.AddError("Invalid import identifier", "The object type must be transaction, commitment or account, and the object id a Ledger identifier.")
+		resp.Diagnostics.AddError("Invalid import identifier", "The object type must be transaction, commitment, account or merchant, and the object id a Ledger identifier.")
 		return
 	}
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), req.ID)...)
@@ -278,7 +278,7 @@ func (r *labelAssignmentResource) ImportState(ctx context.Context, req resource.
 		return
 	}
 	if !validAssignable(parts[0]) || !client.ValidID(parts[1]) || !client.ValidID(parts[2]) {
-		resp.Diagnostics.AddError("Invalid import identifier", "The object type must be transaction, commitment or account, and both identifiers Ledger identifiers.")
+		resp.Diagnostics.AddError("Invalid import identifier", "The object type must be transaction, commitment, account or merchant, and both identifiers Ledger identifiers.")
 		return
 	}
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), req.ID)...)

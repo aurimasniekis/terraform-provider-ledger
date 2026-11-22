@@ -57,8 +57,8 @@ func TestOrganisationTypeNames(t *testing.T) {
 		mk().Metadata(ctx, datasource.MetadataRequest{ProviderTypeName: "ledger"}, &m)
 		ds = append(ds, m.TypeName)
 	}
-	wantRes := "ledger_category ledger_label ledger_bucket ledger_category_assignment ledger_label_assignment ledger_bucket_member"
-	wantDS := "ledger_category ledger_label ledger_bucket ledger_categories ledger_labels ledger_buckets ledger_object_organisation ledger_bucket_members"
+	wantRes := "ledger_category ledger_label ledger_bucket ledger_category_assignment ledger_label_assignment ledger_bucket_member ledger_merchant ledger_merchant_alias"
+	wantDS := "ledger_category ledger_label ledger_bucket ledger_categories ledger_labels ledger_buckets ledger_object_organisation ledger_bucket_members ledger_merchant ledger_merchants"
 	if got := strings.Join(res, " "); got != wantRes {
 		t.Errorf("resources %q", got)
 	}
