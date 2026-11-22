@@ -63,6 +63,15 @@ func (r *definitionResource) description() string {
 	}
 }
 
+// archiveChildrenNote is the category-only caveat on archived: Ledger refuses to archive a category with active children.
+func (r *definitionResource) archiveChildrenNote() string {
+	if !r.hasParent() {
+		return ""
+	}
+	return " A category that still has active children cannot be archived (HTTP 409): archive the children first and the parent in a later apply, " +
+		"because setting `archived = true` on a parent and its children in one apply fails when the parent is archived first."
+}
+
 func (r *definitionResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	attrs := map[string]schema.Attribute{
 		"id": schema.StringAttribute{
@@ -81,13 +90,15 @@ func (r *definitionResource) Schema(_ context.Context, _ resource.SchemaRequest,
 			Computed: true,
 			Default:  booldefault.StaticBool(false),
 			MarkdownDescription: "Whether the " + r.typeName + " is archived. Archiving keeps the " + r.typeName + " and every assignment to it " +
-				"(history stays readable) and stops anything new from using it. Archive instead of destroying when anything is assigned. Defaults to `false`.",
+				"(history stays readable) and stops anything new from using it. Archive instead of destroying when anything is assigned. Defaults to `false`." +
+				r.archiveChildrenNote(),
 		},
 		"reassign_to": schema.StringAttribute{
 			Optional: true,
 			MarkdownDescription: "Used only when this resource is destroyed: the identifier of an active " + r.typeName + " that existing assignments " +
 				"move to. Without it, destroying a " + r.typeName + " that is still assigned fails with `definition_in_use`. " +
-				"The assignments become the person's own (origin user). Not read back from Ledger, so it is empty after an import.",
+				"Assignments the person made (origin user) stay the person's; assignments made by a rule or a model keep their origin. " +
+				"Not read back from Ledger, so it is empty after an import.",
 			Validators: []validator.String{idValidator()},
 		},
 		"version": schema.Int64Attribute{

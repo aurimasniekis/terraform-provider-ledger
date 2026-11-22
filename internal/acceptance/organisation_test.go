@@ -105,6 +105,12 @@ data "ledger_category" "by_name" {
   depends_on = [ledger_category.parent]
 }
 
+data "ledger_category" "by_id" {
+  id         = ledger_category.parent.id
+  parent_id  = "none"
+  depends_on = [ledger_category.parent]
+}
+
 data "ledger_labels" "all" {
   depends_on = [ledger_label.reviewed]
 }
@@ -156,6 +162,9 @@ func TestOrganisationResources(t *testing.T) {
 					// data sources
 					resource.TestCheckResourceAttrPair("data.ledger_category.by_name", "id", "ledger_category.parent", "id"),
 					resource.TestCheckResourceAttr("data.ledger_category.by_name", "name", "housing"),
+					// id together with parent_id = "none" is a valid lookup of a top-level category.
+					resource.TestCheckResourceAttrPair("data.ledger_category.by_id", "id", "ledger_category.parent", "id"),
+					resource.TestCheckResourceAttr("data.ledger_category.by_id", "parent_id", "none"),
 					resource.TestCheckResourceAttr("data.ledger_labels.all", "items.#", "1"),
 					resource.TestCheckResourceAttr("data.ledger_buckets.active", "items.#", "1"),
 					resource.TestCheckResourceAttr("data.ledger_categories.children", "items.#", "1"),
@@ -325,6 +334,36 @@ resource "ledger_label" "target" {
 				Config:   targetOnly,
 				PlanOnly: true,
 			},
+		},
+	})
+}
+
+// TestArchiveParentAndChildInOneApply documents that a parent category cannot be archived in the same apply as its
+// children: Ledger refuses (409, active children) and Terraform orders the parent first. Archiving the child in an
+// earlier apply makes the parent's archive succeed.
+func TestArchiveParentAndChildInOneApply(t *testing.T) {
+	orgFixture(t)
+	cfg := func(parentArchived, childArchived bool) string {
+		return fmt.Sprintf(`
+resource "ledger_category" "parent" {
+  name     = "Housing"
+  archived = %t
+}
+
+resource "ledger_category" "child" {
+  name      = "Rent"
+  parent_id = ledger_category.parent.id
+  archived  = %t
+}
+`, parentArchived, childArchived)
+	}
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: providerFactories,
+		Steps: []resource.TestStep{
+			{Config: cfg(false, false)},
+			{Config: cfg(true, true), ExpectError: regexp.MustCompile(`(?s)Archiving the category failed.*409.*active children`)},
+			{Config: cfg(false, true), Check: resource.TestCheckResourceAttr("ledger_category.child", "archived", "true")},
+			{Config: cfg(true, true), Check: resource.TestCheckResourceAttr("ledger_category.parent", "archived", "true")},
 		},
 	})
 }
