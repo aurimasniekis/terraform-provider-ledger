@@ -173,7 +173,7 @@ func newFakeMerchants(t *testing.T) (*fakeMerchants, map[string]func() (tfprotov
 	t.Helper()
 	requireTerraform(t)
 	f := &fakeMerchants{m: map[string]*client.Merchant{}}
-	srv := httptest.NewServer(f)
+	srv := httptest.NewServer(withAPIDocument(f))
 	t.Cleanup(srv.Close)
 	t.Setenv("LEDGER_ENDPOINT", srv.URL)
 	t.Setenv("LEDGER_TOKEN", "unit-token")
