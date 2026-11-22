@@ -42,6 +42,9 @@ func TestValidateCommitment(t *testing.T) {
 			m.Schedule.Frequency = types.StringValue("annual")
 			m.Schedule.Month = types.Int64Value(2)
 		},
+		"Day does not exist in that month": func(m *commitmentModel) {
+			m.Schedule = &scheduleModel{Frequency: types.StringValue("annual"), Interval: types.Int64Null(), Month: types.Int64Value(2), Day: types.Int64Value(30)}
+		},
 		"Invalid date":                  func(m *commitmentModel) { m.StartDate = types.StringValue("2026-02-30") },
 		"Date too early":                func(m *commitmentModel) { m.StartDate = types.StringValue("1899-12-31") },
 		"end_date is before start_date": func(m *commitmentModel) { m.EndDate = types.StringValue("2025-12-31") },
@@ -63,6 +66,20 @@ func TestValidateCommitment(t *testing.T) {
 		mutate(&m)
 		if got := errorPaths(m); !strings.Contains(got, want) {
 			t.Errorf("want %q, got %q", want, got)
+		}
+	}
+}
+
+func TestAnnualDayMayBeTheLongestDayOfItsMonth(t *testing.T) {
+	for month, day := range map[int64]int64{1: 31, 2: 29, 4: 30, 12: 31} {
+		m := monthlyModel()
+		m.Schedule = &scheduleModel{Frequency: types.StringValue("annual"), Interval: types.Int64Null(), Month: types.Int64Value(month), Day: types.Int64Value(day)}
+		if got := errorPaths(m); got != "" {
+			t.Errorf("month %d day %d was rejected: %s", month, day, got)
+		}
+		m.Schedule.Day = types.Int64Value(day + 1)
+		if month != 1 && month != 12 && errorPaths(m) == "" {
+			t.Errorf("month %d day %d was accepted", month, day+1)
 		}
 	}
 }

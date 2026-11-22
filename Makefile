@@ -8,7 +8,7 @@ BINARY   := $(BIN_DIR)/terraform-provider-ledger
 VERSION  ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS  := -X main.version=$(VERSION)
 
-.PHONY: help acceptance fmt fmt-check vet lint test build docs docs-check workflow-policy release-check release-snapshot release-targets-check check clean
+.PHONY: help acceptance inventory-check fmt fmt-check vet lint test build docs docs-check workflow-policy release-check release-snapshot release-targets-check check clean
 
 help: ## list the targets
 	@grep -E '^[a-zA-Z_-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  %-14s %s\n", $$1, $$2}'
@@ -33,6 +33,11 @@ test: ## unit tests (no network services) with the race detector (acceptance tes
 acceptance: ## acceptance tests against a local Ledger; needs LEDGER_ACC_SOURCE=<go-ledger checkout at the pinned commit>
 	@test -n "$(LEDGER_ACC_SOURCE)" || { echo "set LEDGER_ACC_SOURCE to a go-ledger checkout at the commit in internal/ledgertest/ledger.pin"; exit 1; }
 	TF_ACC=1 LEDGER_ACC_SOURCE="$(LEDGER_ACC_SOURCE)" $(GO) test -count=1 -timeout 15m ./internal/acceptance/...
+
+# The coverage inventory (docs/decisions/0005) is compared with the OpenAPI document of a go-ledger checkout at the commit it names.
+inventory-check: ## compare ADR-0005's operation index with go-ledger; needs LEDGER_INVENTORY_SOURCE=<go-ledger checkout at the commit named in the ADR>
+	@test -n "$(LEDGER_INVENTORY_SOURCE)" || { echo "set LEDGER_INVENTORY_SOURCE to a go-ledger checkout at the commit named in docs/decisions/0005-coverage-inventory.md"; exit 1; }
+	LEDGER_INVENTORY_SOURCE="$(LEDGER_INVENTORY_SOURCE)" $(GO) test -count=1 -run 'TestCoverageInventory' -v ./internal/ledgertest/
 
 build: ## build the provider binary, pure Go (CGO_ENABLED=0)
 	CGO_ENABLED=0 $(GO) build ./...

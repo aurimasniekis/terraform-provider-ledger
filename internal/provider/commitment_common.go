@@ -202,6 +202,14 @@ func validateCommitment(m commitmentModel) diag.Diagnostics {
 				d.AddAttributeError(path.Root("schedule").AtName("interval"), "Interval does not apply to an annual schedule",
 					"Remove interval, or set frequency to monthly.")
 			}
+			// Ledger refuses an annual day the month never has ("day must be from 1 to 29 for month 2"): say so at plan time.
+			if known(s.Month) && known(s.Day) && s.Month.ValueInt64() >= 1 && s.Month.ValueInt64() <= 12 {
+				month, day := s.Month.ValueInt64(), s.Day.ValueInt64()
+				if max := int64(time.Date(2024, time.Month(month)+1, 0, 0, 0, 0, 0, time.UTC).Day()); day > max {
+					d.AddAttributeError(path.Root("schedule").AtName("day"), "Day does not exist in that month",
+						fmt.Sprintf("An annual schedule in month %d has at most %d days (February counts 29 for leap years), so day %d is refused by Ledger.", month, max, day))
+				}
+			}
 		}
 	}
 	if l := m.Leeway; l != nil && known(l.Kind) {
