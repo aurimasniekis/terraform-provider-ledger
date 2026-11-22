@@ -7,7 +7,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 )
 
-// TestReadOnlyReportDataSources reads every report data source of ADR-0011 from a local Ledger. The server has no bank
+// TestReadOnlyReportDataSources reads every report data source of ADR-0012 from a local Ledger. The server has no bank
 // connection, so the bank-sourced parts are empty; the point is that each answer decodes into its schema and that the
 // amounts of a commitment keep their exact text and currency.
 func TestReadOnlyReportDataSources(t *testing.T) {
@@ -54,10 +54,6 @@ data "ledger_occurrences" "march" {
   depends_on = [ledger_commitment.rent, ledger_commitment.vps]
 }
 
-data "ledger_occurrence" "first" {
-  id = data.ledger_occurrences.march.items[0].id
-}
-
 data "ledger_monthly_summary" "march" {
   month      = "2026-03"
   depends_on = [ledger_commitment.rent, ledger_commitment.vps]
@@ -89,8 +85,6 @@ data "ledger_audit_entries" "commitments" {
 				resource.TestCheckResourceAttrSet("data.ledger_rates_status.rates", "enabled"),
 				resource.TestCheckResourceAttr("data.ledger_exchange_rates.all", "truncated", "false"),
 				resource.TestCheckResourceAttr("data.ledger_occurrences.march", "items.#", "2"),
-				resource.TestCheckResourceAttrPair("data.ledger_occurrence.first", "commitment_id", "data.ledger_occurrences.march", "items.0.commitment_id"),
-				resource.TestCheckResourceAttrSet("data.ledger_occurrence.first", "payment.status"),
 				resource.TestCheckResourceAttr("data.ledger_monthly_summary.march", "month", "2026-03"),
 				// One total per currency: the two commitments are never merged into one figure.
 				resource.TestCheckResourceAttr("data.ledger_monthly_summary.march", "totals.#", "2"),

@@ -10,7 +10,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
-// The read-only data sources (ADR-0011) describe what Ledger reports as a small tree of nodes. One node produces the
+// The read-only data sources (ADR-0012) describe what Ledger reports as a small tree of nodes. One node produces the
 // schema attribute, the framework type and the conversion of the decoded API value, so the three cannot drift apart.
 // Money is always an object with an amount (an exact decimal string, never a number) and its own currency; the
 // data sources never add, convert or compare amounts.
@@ -39,8 +39,8 @@ type node struct {
 	elem   *node   // kList
 }
 
-func str(d string) node             { return node{kind: kStr, desc: d} }
-func boolean(d string) node         { return node{kind: kBool, desc: d} }
+func rstr(d string) node            { return node{kind: kStr, desc: d} }
+func rbool(d string) node           { return node{kind: kBool, desc: d} }
 func integer(d string) node         { return node{kind: kInt, desc: d} }
 func obj(d string, f ...field) node { return node{kind: kObj, desc: d, fields: f} }
 func list(d string, elem node) node { return node{kind: kList, desc: d, elem: &elem} }
@@ -57,8 +57,8 @@ func fk(name, key string, n node) field { return field{name: name, n: n, key: ke
 // money is an exact amount with its currency. The amount is a decimal string in the form the API sent.
 func money(d string) node {
 	return obj(d,
-		f("amount", str("Exact decimal amount as a string, in the scale Ledger stores it. Never a floating-point number.")),
-		f("currency", str("ISO 4217 currency code of amount.")))
+		f("amount", rstr("Exact decimal amount as a string, in the scale Ledger stores it. Never a floating-point number.")),
+		f("currency", rstr("ISO 4217 currency code of amount.")))
 }
 
 func (n node) attrType() attr.Type {

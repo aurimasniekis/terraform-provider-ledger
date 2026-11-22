@@ -33,7 +33,7 @@ func TestReportSchemasAreValid(t *testing.T) {
 		}
 	}
 	for _, want := range []string{"ledger_me", "ledger_grants", "ledger_auth_methods", "ledger_exchange_rates", "ledger_rates_status",
-		"ledger_occurrences", "ledger_occurrence", "ledger_monthly_summary", "ledger_outlook", "ledger_payment_matches", "ledger_payment_match",
+		"ledger_occurrences", "ledger_monthly_summary", "ledger_outlook", "ledger_payment_matches", "ledger_payment_match",
 		"ledger_audit_entries", "ledger_merchant_sources"} {
 		if !seen[want] {
 			t.Errorf("%s is missing", want)
@@ -92,8 +92,6 @@ func (f *fakeReports) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		} else {
 			_, _ = w.Write([]byte(`{"items":[` + occ("01JD3Y4C8V9M2Q7W5R6T0XZ003") + `],"next_cursor":null}`))
 		}
-	case "/api/v1/occurrences/" + occID:
-		_, _ = w.Write([]byte(occ(occID)))
 	case "/api/v1/audit":
 		_, _ = w.Write([]byte(`{"items":[{"id":"01JD3Y4C8V9M2Q7W5R6T0XZ010","action":"commitment.create","actor_kind":"token","actor_user_id":null,"actor_token_id":"01JD3Y4C8V9M2Q7W5R6T0XZ00T","target_type":"commitment","target_id":"x","at":"2026-03-01T00:00:00Z","details":{"n":12345678901234567890}}],"next_cursor":null}`))
 	case "/api/v1/outlook":
@@ -132,10 +130,6 @@ data "ledger_occurrences" "capped" {
   max_items = 1
 }
 
-data "ledger_occurrence" "one" {
-  id = "` + occID + `"
-}
-
 data "ledger_audit_entries" "recent" {
   action_prefix = "commitment."
   actor_kind    = ["token"]
@@ -161,7 +155,6 @@ data "ledger_outlook" "o" {
 			resource.TestCheckResourceAttr("data.ledger_occurrences.march", "items.0.payment.unconverted_currencies.0", "USD"),
 			resource.TestCheckResourceAttr("data.ledger_occurrences.capped", "items.#", "1"),
 			resource.TestCheckResourceAttr("data.ledger_occurrences.capped", "truncated", "true"),
-			resource.TestCheckResourceAttr("data.ledger_occurrence.one", "payment.outstanding_amount.amount", "850.10"),
 			resource.TestCheckResourceAttr("data.ledger_audit_entries.recent", "items.0.details", `{"n":12345678901234567890}`),
 			resource.TestCheckNoResourceAttr("data.ledger_audit_entries.recent", "items.0.actor_user_id"),
 			// Each currency keeps its own amounts: nothing is summed or converted.
@@ -190,7 +183,6 @@ func TestReportDataSourceSurfacesAPIErrorAndValidatesInput(t *testing.T) {
 		Steps: []resource.TestStep{
 			{Config: `data "ledger_payment_match" "m" { id = "` + matchID + `" }`, ExpectError: regexp.MustCompile(`Reading payment_match failed[\s\S]*not_found`)},
 			{Config: `data "ledger_occurrences" "m" { month = "2026-13" }`, ExpectError: regexp.MustCompile(`must be a month`)},
-			{Config: `data "ledger_occurrence" "m" { id = "nope" }`, ExpectError: regexp.MustCompile(`must be a Ledger identifier`)},
 			{Config: `data "ledger_audit_entries" "m" { max_items = 0 }`, ExpectError: regexp.MustCompile(`between 1 and 10000`)},
 		},
 	})

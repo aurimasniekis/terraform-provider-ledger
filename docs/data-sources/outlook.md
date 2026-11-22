@@ -3,12 +3,12 @@
 page_title: "ledger_outlook Data Source - ledger"
 subcategory: ""
 description: |-
-  These are derived reports, not configuration. Balances and bank transaction details are bank-sourced facts from the connected provider; they are kept apart from the person's own corrections (manual payments, status overrides, match decisions) and are not edited here. Compares the recorded commitments still due with the bank balances, per currency. The outlook is never a guarantee of money that is safe to spend: it only knows commitments that were recorded and balances as fresh as the last refresh. Amounts of different currencies are never added; the optional converted block exists only when the server was asked for a currency and has the rates.
+  These are derived reports, not configuration. Balances and bank transaction details are bank-sourced facts from the connected provider; they are kept apart from the person's own corrections (manual payments, status overrides, match decisions) and are not edited here. They are copied into the Terraform state, so protect the state accordingly. Compares the recorded commitments still due with the bank balances, per currency. The outlook is never a guarantee of money that is safe to spend: it only knows commitments that were recorded and balances as fresh as the last refresh. Amounts of different currencies are never added; the optional converted block exists only when the server was asked for a currency and has the rates.
 ---
 
 # ledger_outlook (Data Source)
 
-These are derived reports, not configuration. Balances and bank transaction details are bank-sourced facts from the connected provider; they are kept apart from the person's own corrections (manual payments, status overrides, match decisions) and are not edited here. Compares the recorded commitments still due with the bank balances, per currency. **The outlook is never a guarantee of money that is safe to spend**: it only knows commitments that were recorded and balances as fresh as the last refresh. Amounts of different currencies are never added; the optional converted block exists only when the server was asked for a currency and has the rates.
+These are derived reports, not configuration. Balances and bank transaction details are bank-sourced facts from the connected provider; they are kept apart from the person's own corrections (manual payments, status overrides, match decisions) and are not edited here. They are copied into the Terraform state, so protect the state accordingly. Compares the recorded commitments still due with the bank balances, per currency. **The outlook is never a guarantee of money that is safe to spend**: it only knows commitments that were recorded and balances as fresh as the last refresh. Amounts of different currencies are never added; the optional converted block exists only when the server was asked for a currency and has the rates.
 
 ## Example Usage
 

@@ -9,7 +9,7 @@ import (
 	"strconv"
 )
 
-// Document is a decoded JSON object of a read-only report (ADR-0011). The report data sources describe their own shape, so
+// Document is a decoded JSON object of a read-only report (ADR-0012). The report data sources describe their own shape, so
 // the client does not copy it into Go structs: it keeps the document as the API sent it. Numbers stay json.Number and
 // monetary amounts are strings in the API, so nothing is ever converted through a binary floating-point value.
 type Document map[string]any

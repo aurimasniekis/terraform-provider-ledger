@@ -31,12 +31,12 @@ OpenAPI document of a go-ledger checkout at the commit named above (see Decision
 | --- | --- | --- |
 | Categories, labels, buckets (`/categories`, `/labels`, `/buckets`, archive and unarchive) | `ledger_category`, `ledger_label`, `ledger_bucket` and data sources (ADR-0004) | done |
 | Bucket members, category and label assignments (`/buckets/{id}/members`, `/organisation/...`) | `ledger_bucket_member`, `ledger_category_assignment`, `ledger_label_assignment`, `ledger_object_organisation` (ADR-0004). Merchants as an assignment target: covered in the next row | done |
-| Merchants (`/merchants`, `/merchants/{id}`, archive and unarchive, `/merchants/{id}/aliases`) and merchants as an assignment target | `ledger_merchant`, `ledger_merchant_alias`, `ledger_merchant` and `ledger_merchants` data sources, merchant as a target of the organisation resources (ADR-0007, PR #8). `POST /merchants/{id}/merge` is an **action exception** (see below). `GET /merchants/sources` is a read-only data source, `ledger_merchant_sources` (F5). | done in PR #8; sources: done (F5, ADR-0011) |
+| Merchants (`/merchants`, `/merchants/{id}`, archive and unarchive, `/merchants/{id}/aliases`) and merchants as an assignment target | `ledger_merchant`, `ledger_merchant_alias`, `ledger_merchant` and `ledger_merchants` data sources, merchant as a target of the organisation resources (ADR-0007, PR #8). `POST /merchants/{id}/merge` is an **action exception** (see below). `GET /merchants/sources` is a read-only data source, `ledger_merchant_sources` (F5). | done in PR #8; sources: done (F5, ADR-0012) |
 | Commitments (`/commitments`) with schedule, amount and currency, tolerance, leeway | `ledger_commitment`, `ledger_commitment` and `ledger_commitments` data sources (ADR-0006) | done |
-| Users (`/users`: create, get, list, patch role, display name, disabled) | `ledger_user` and data sources. Ledger has **no delete**: destroy disables the user (documented). Creating or promoting an administrator and re-enabling one needs the root token (D32). | follow-up F1 |
-| User passwords (`PUT /users/{id}/password`) | Write-only: `ledger_user_password` with `password_wo` and `password_wo_version` (Terraform 1.11 or later). Needs the root token (D32). The value is never in plan or state. | follow-up F1 |
+| Users (`/users`: create, get, list, patch role, display name, disabled) | `ledger_user` and data sources. Ledger has **no delete**: destroy disables the user (documented). Creating or promoting an administrator and re-enabling one needs the root token (D32). | done (ADR-0014) |
+| User passwords (`PUT /users/{id}/password`) | Write-only: `ledger_user_password` with `password_wo` and `password_wo_version` (Terraform 1.11 or later). Needs the root token (D32). The value is never in plan or state. | done (ADR-0014) |
 | API tokens, create (`POST /auth/tokens`) and revoke (`DELETE /tokens/{id}`), list and get (`/tokens`, `tokens:read`) | `ledger_api_token` and a metadata-only `ledger_api_tokens` data source. Tokens cannot be changed, so every change replaces. Creation by an API token needs the **root token of the root account** and creates tokens owned by that account (see the secrets section). | follow-up F2 |
-| Deferral plans and their adjustments (`/deferral-plans`, `/adjustments`, `/adjustments/{adjustment_id}/paid` and `/unpaid`, undo, history) | `ledger_deferral_plan` (create, revise, destroy = undo) and `ledger_deferral_plan_adjustment`, whose `paid` attribute calls the paid and unpaid operations (marking an adjustment paid is the person's own record, not a bank fact); history as a data source. They hang off an **occurrence**, which Ledger derives and may recreate, so a data source to find the occurrence is part of the task. | follow-up F3 |
+| Deferral plans and their adjustments (`/deferral-plans`, `/adjustments`, `/adjustments/{adjustment_id}/paid` and `/unpaid`, undo, history) | `ledger_deferral_plan` (create, revise, destroy = undo) and `ledger_deferral_plan_adjustment`, whose `paid` attribute calls the paid and unpaid operations (marking an adjustment paid is the person's own record, not a bank fact); history as a data source. They hang off an **occurrence**, which Ledger derives and may recreate, so a data source to find the occurrence is part of the task. (ADR-0010) | done |
 | Manual payments (`/occurrences/{id}/manual-payments`) | `ledger_manual_payment`: a payment the person records by hand, user data and not a bank fact. Cannot be changed (replace). | follow-up F4 |
 | Manual status override (`PUT/DELETE /occurrences/{id}/status-override`) | `ledger_occurrence_status_override` | follow-up F4 |
 | Merchant review decisions (`PUT /transactions/{id}/merchant/review`, `DELETE /transactions/{id}/merchant/review`) | **Exception.** A user correction over a bank fact, but a configuration cannot find its operand: **the API has no transaction list or search endpoint**, so a transaction identifier cannot be obtained or declared, and the operations are decisions in a review queue. Revisit when the API serves a way to find transactions. | exception |
@@ -56,14 +56,14 @@ descoped**: when its endpoints land in the OpenAPI document, the provider resour
 
 | Object (API) | Mapping | Status |
 | --- | --- | --- |
-| `GET /me`, `GET /grants` | Data sources `ledger_me` and `ledger_grants`: who the provider acts as, and the grant vocabulary (useful for token grants). | done (F5, ADR-0011) |
-| `GET /rates`, `GET /rates/status` | Data sources `ledger_exchange_rates` and `ledger_rates_status` (provenance and freshness stay visible). `POST /rates/refreshes` is an action: exception. | done (F5, ADR-0011) |
-| `GET /occurrences`, `/occurrences/{id}`, `/occurrences/summary`, `GET /outlook` | Data sources `ledger_occurrences`, `ledger_occurrence`, `ledger_monthly_summary`, `ledger_outlook`. These are derived reports, not configuration; they stay read-only. The outlook is never a guarantee of money that is safe to spend, and the data source documentation says so. | done (F5, ADR-0011) |
-| `GET /payment-matches`, `/payment-matches/{id}` | Data sources `ledger_payment_matches` and `ledger_payment_match`, read-only. | done (F5, ADR-0011) |
-| `GET /audit` | Data source `ledger_audit_entries` (filters, paging). | done (F5, ADR-0011) |
-| `GET /bank-applications`, `GET /bank-applications/{application}/institutions`, `GET /bank-connections`, `GET /bank-connections/{id}` | Data sources `ledger_bank_applications`, `ledger_bank_institutions`, `ledger_bank_connections`: status and freshness of what is connected, so a configuration can depend on it. No account numbers or balances are exposed beyond what the API's connection resource already returns, and the docs say they are bank-sourced facts. | follow-up F6 |
-| `GET /auth/methods` (public) | `ledger_auth_methods` data source (public information). | done (F5, ADR-0011) |
-| `GET /merchants/sources` | `ledger_merchant_sources` data source: the vocabulary of merchant sources. | done (F5, ADR-0011) |
+| `GET /me`, `GET /grants` | Data sources `ledger_me` and `ledger_grants`: who the provider acts as, and the grant vocabulary (useful for token grants). | done (F5, ADR-0012) |
+| `GET /rates`, `GET /rates/status` | Data sources `ledger_exchange_rates` and `ledger_rates_status` (provenance and freshness stay visible). `POST /rates/refreshes` is an action: exception. | done (F5, ADR-0012) |
+| `GET /occurrences`, `/occurrences/{id}`, `/occurrences/summary`, `GET /outlook` | Data sources `ledger_occurrences`, `ledger_occurrence` (F3, ADR-0010), `ledger_monthly_summary`, `ledger_outlook`. These are derived reports, not configuration; they stay read-only. The outlook is never a guarantee of money that is safe to spend, and the data source documentation says so. | done (F5, ADR-0012; `ledger_occurrence`: F3, ADR-0010) |
+| `GET /payment-matches`, `/payment-matches/{id}` | Data source `ledger_payment_matches`, read-only. | done (F5, ADR-0012) |
+| `GET /audit` | Data source `ledger_audit_entries` (filters, paging). | done (F5, ADR-0012) |
+| `GET /bank-applications`, `GET /bank-applications/{application}/institutions`, `GET /bank-connections`, `GET /bank-connections/{id}` | Data sources `ledger_bank_applications`, `ledger_bank_institutions`, `ledger_bank_connections` and `ledger_bank_connection`: status and freshness of what is connected, so a configuration can depend on it. Balances and account identifier hints are not read at all, and the docs say the rest are bank-sourced facts (ADR-0013). | done |
+| `GET /auth/methods` (public) | `ledger_auth_methods` data source (public information). | done (F5, ADR-0012) |
+| `GET /merchants/sources` | `ledger_merchant_sources` data source: the vocabulary of merchant sources. | done (F5, ADR-0012) |
 | `GET /transactions/{id}/merchant` | **Exception.** The merchant annotation of one bank transaction, a bank fact whose operand a configuration cannot find (no transaction list or search endpoint). Merchants themselves are read through `ledger_merchant` data sources. | exception |
 | `GET /openapi.json`, `GET /openapi.yaml` | Used by the provider itself: `GET /openapi.json` is the compatibility check in `Configure` (D18, ADR-0008); `GET /openapi.yaml` is not read. Neither is a resource. | done (F7) for `/openapi.json`; exception for `/openapi.yaml` |
 
@@ -119,13 +119,13 @@ descoped**: when its endpoints land in the OpenAPI document, the provider resour
 
 ## Follow-up work (one worker each)
 
-- **F1** `ledger_user` and `ledger_user_password` (write-only) with data sources; destroy disables.
+- **F1** `ledger_user` and `ledger_user_password` (write-only) with data sources; destroy disables. Done: ADR-0014.
 - **F2** `ledger_api_token` (state exception, replace-on-change) and `ledger_api_tokens`; root-token prerequisite tests.
-- **F3** `ledger_deferral_plan`, `ledger_deferral_plan_adjustment`, history data source, and a way to find an occurrence.
+- **F3** `ledger_deferral_plan`, `ledger_deferral_plan_adjustment`, history data source, and a way to find an occurrence. Done: ADR-0010.
 - **F4** `ledger_manual_payment` and `ledger_occurrence_status_override`.
-- **F5** (done, ADR-0011) Read-only data sources: `ledger_merchant_sources` (`GET /merchants/sources`), me, grants, auth methods, exchange rates and status, occurrences, monthly summary, outlook,
+- **F5** (done, ADR-0012) Read-only data sources: `ledger_merchant_sources` (`GET /merchants/sources`), me, grants, auth methods, exchange rates and status, occurrences, monthly summary, outlook,
   payment matches, audit entries.
-- **F6** Read-only bank data sources: applications, institutions, connections (freshness and status visible).
+- **F6** Read-only bank data sources: applications, institutions, connections (freshness and status visible). Done: ADR-0013.
 - **F7** Compatibility check in `Configure`: read `info.version` from the served OpenAPI document, fail on an unsupported
   major, warn on a newer minor. **Done** (ADR-0008); the harness checks the exact pin (ADR-0002).
 - **F8** Client reliability: idempotent-read retries (D17, at most 3 with backoff) and timeouts, shared by all resources.
@@ -142,19 +142,19 @@ operation; the status is the first word (`done`, `follow-up` or `exception`).
 | --- | --- | --- |
 | `GET /openapi.json` | read by the provider in `Configure` (compatibility check, ADR-0008), not a resource | done (F7) |
 | `GET /openapi.yaml` | the same document in YAML; the provider reads only the JSON one, not a resource | exception (not read by the provider) |
-| `GET /me` | data source `ledger_me` | done (F5, ADR-0011) |
-| `GET /grants` | data source `ledger_grants` | done (F5, ADR-0011) |
-| `GET /audit` | data source `ledger_audit_entries` | done (F5, ADR-0011) |
-| `GET /users` | data sources `ledger_user`, `ledger_users` | follow-up F1 |
-| `POST /users` | `ledger_user` (no delete: destroy disables) | follow-up F1 |
-| `GET /users/{id}` | data sources `ledger_user`, `ledger_users` | follow-up F1 |
-| `PATCH /users/{id}` | `ledger_user` (no delete: destroy disables) | follow-up F1 |
+| `GET /me` | data source `ledger_me` | done (F5, ADR-0012) |
+| `GET /grants` | data source `ledger_grants` | done (F5, ADR-0012) |
+| `GET /audit` | data source `ledger_audit_entries` | done (F5, ADR-0012) |
+| `GET /users` | data sources `ledger_user`, `ledger_users` | done (ADR-0014) |
+| `POST /users` | `ledger_user` (no delete: destroy disables) | done (ADR-0014) |
+| `GET /users/{id}` | data sources `ledger_user`, `ledger_users` | done (ADR-0014) |
+| `PATCH /users/{id}` | `ledger_user` (no delete: destroy disables) | done (ADR-0014) |
 | `GET /commitments` | data source `ledger_commitments` (ADR-0006) | done |
 | `POST /commitments` | `ledger_commitment` and its data source (ADR-0006) | done |
 | `GET /commitments/{id}` | `ledger_commitment` and its data source (ADR-0006) | done |
 | `PATCH /commitments/{id}` | `ledger_commitment` and its data source (ADR-0006) | done |
 | `DELETE /commitments/{id}` | `ledger_commitment` and its data source (ADR-0006) | done |
-| `PUT /users/{id}/password` | `ledger_user_password`, write-only | follow-up F1 |
+| `PUT /users/{id}/password` | `ledger_user_password`, write-only | done (ADR-0014) |
 | `POST /auth/sign-in` | interactive sign-in or the person's own credentials (password, recovery sign-in, reauthentication) | exception |
 | `POST /auth/sign-in/second-factor` | interactive sign-in or the person's own credentials (password, recovery sign-in, reauthentication) | exception |
 | `POST /auth/sign-out` | interactive sign-in or the person's own credentials (password, recovery sign-in, reauthentication) | exception |
@@ -163,7 +163,7 @@ operation; the status is the first word (`done`, `follow-up` or `exception`).
 | `DELETE /auth/sessions/{id}` | session: ends one of the signed-in person's own browser sessions; transient state, not configuration | exception |
 | `POST /auth/reauthenticate` | interactive sign-in or the person's own credentials (password, recovery sign-in, reauthentication) | exception |
 | `PUT /auth/password` | interactive sign-in or the person's own credentials (password, recovery sign-in, reauthentication) | exception |
-| `GET /auth/methods` | data source `ledger_auth_methods` | done (F5, ADR-0011) |
+| `GET /auth/methods` | data source `ledger_auth_methods` | done (F5, ADR-0012) |
 | `GET /auth/oidc/authorize` | single sign-on: browser redirects to an identity provider, made interactively | exception |
 | `GET /auth/oidc/callback` | single sign-on: browser redirects to an identity provider, made interactively | exception |
 | `GET /auth/oidc/link` | single sign-on: browser redirects to an identity provider, made interactively | exception |
@@ -177,10 +177,10 @@ operation; the status is the first word (`done`, `follow-up` or `exception`).
 | `POST /auth/two-factor/totp` | two-factor: the TOTP secret and recovery codes are shown once to the person and must not pass through state | exception |
 | `POST /auth/two-factor/totp/confirm` | two-factor: the TOTP secret and recovery codes are shown once to the person and must not pass through state | exception |
 | `POST /auth/two-factor/recovery-codes` | two-factor: the TOTP secret and recovery codes are shown once to the person and must not pass through state | exception |
-| `GET /occurrences` | data source `ledger_occurrences` | done (F5, ADR-0011) |
-| `GET /occurrences/summary` | data source `ledger_monthly_summary` | done (F5, ADR-0011) |
-| `GET /occurrences/{id}` | data source `ledger_occurrence` | done (F5, ADR-0011) |
-| `GET /outlook` | data source `ledger_outlook` | done (F5, ADR-0011) |
+| `GET /occurrences` | data source `ledger_occurrences` | done (F5, ADR-0012) |
+| `GET /occurrences/summary` | data source `ledger_monthly_summary` | done (F5, ADR-0012) |
+| `GET /occurrences/{id}` | data source `ledger_occurrence` (by id, or by commitment and month) | done (F3, ADR-0010) |
+| `GET /outlook` | data source `ledger_outlook` | done (F5, ADR-0012) |
 | `GET /auth/tokens` | session-only twin of `/tokens`; the provider authenticates with a token and uses `/tokens` | exception |
 | `POST /auth/tokens` | `ledger_api_token` create (the one route a bearer token may use; needs the root token) | follow-up F2 |
 | `GET /auth/tokens/{id}` | session-only twin of `/tokens`; the provider authenticates with a token and uses `/tokens` | exception |
@@ -194,9 +194,9 @@ operation; the status is the first word (`done`, `follow-up` or `exception`).
 | `DELETE /occurrences/{id}/manual-payments/{payment_id}` | `ledger_manual_payment` (replace on change) | follow-up F4 |
 | `PUT /occurrences/{id}/status-override` | `ledger_occurrence_status_override` | follow-up F4 |
 | `DELETE /occurrences/{id}/status-override` | `ledger_occurrence_status_override` | follow-up F4 |
-| `GET /payment-matches` | data source `ledger_payment_matches` | done (F5, ADR-0011) |
+| `GET /payment-matches` | data source `ledger_payment_matches` | done (F5, ADR-0012) |
 | `POST /payment-matches` | review workflow or run over bank transactions: the API has no transaction list or search endpoint, so a configuration cannot find the operand; decisions in a queue, not state to converge | exception |
-| `GET /payment-matches/{id}` | data source `ledger_payment_match` | done (F5, ADR-0011) |
+| `GET /payment-matches/{id}` | data source `ledger_payment_matches` (by id) | done (F5, ADR-0012) |
 | `POST /payment-matches/{id}/confirm` | review workflow or run over bank transactions: the API has no transaction list or search endpoint, so a configuration cannot find the operand; decisions in a queue, not state to converge | exception |
 | `POST /payment-matches/{id}/reject` | review workflow or run over bank transactions: the API has no transaction list or search endpoint, so a configuration cannot find the operand; decisions in a queue, not state to converge | exception |
 | `POST /payment-matches/{id}/unmatch` | review workflow or run over bank transactions: the API has no transaction list or search endpoint, so a configuration cannot find the operand; decisions in a queue, not state to converge | exception |
@@ -204,18 +204,18 @@ operation; the status is the first word (`done`, `follow-up` or `exception`).
 | `POST /payment-matches/{id}/reverse` | review workflow or run over bank transactions: the API has no transaction list or search endpoint, so a configuration cannot find the operand; decisions in a queue, not state to converge | exception |
 | `POST /payment-matches/{id}/unconfirm` | review workflow or run over bank transactions: the API has no transaction list or search endpoint, so a configuration cannot find the operand; decisions in a queue, not state to converge | exception |
 | `POST /payment-matches/{id}/confirm-replacing` | review workflow or run over bank transactions: the API has no transaction list or search endpoint, so a configuration cannot find the operand; decisions in a queue, not state to converge | exception |
-| `GET /bank-applications` | data source `ledger_bank_applications` | follow-up F6 |
-| `GET /bank-applications/{application}/institutions` | data source `ledger_bank_institutions` | follow-up F6 |
-| `GET /bank-connections` | data sources `ledger_bank_connections` | follow-up F6 |
+| `GET /bank-applications` | data source `ledger_bank_applications` | done |
+| `GET /bank-applications/{application}/institutions` | data source `ledger_bank_institutions` | done |
+| `GET /bank-connections` | data source `ledger_bank_connections` | done |
 | `POST /bank-connections` | consent flow or imperative action on a bank connection; Terraform must not script consent | exception |
 | `POST /bank-connections/complete` | consent flow or imperative action on a bank connection; Terraform must not script consent | exception |
-| `GET /bank-connections/{id}` | data sources `ledger_bank_connections` | follow-up F6 |
+| `GET /bank-connections/{id}` | data source `ledger_bank_connection` | done |
 | `POST /bank-connections/{id}/reconnect` | consent flow or imperative action on a bank connection; Terraform must not script consent | exception |
 | `POST /bank-connections/{id}/refresh` | consent flow or imperative action on a bank connection; Terraform must not script consent | exception |
 | `POST /bank-connections/{id}/disconnect` | consent flow or imperative action on a bank connection; Terraform must not script consent | exception |
 | `POST /mcp` | Model Context Protocol endpoint, not a configuration object | exception |
 | `POST /payment-matching/runs` | review workflow or run over bank transactions: the API has no transaction list or search endpoint, so a configuration cannot find the operand; decisions in a queue, not state to converge | exception |
-| `GET /merchants/sources` | data source `ledger_merchant_sources` (provider vocabulary of merchant sources, read-only) | done (F5, ADR-0011) |
+| `GET /merchants/sources` | data source `ledger_merchant_sources` (provider vocabulary of merchant sources, read-only) | done (F5, ADR-0012) |
 | `GET /transactions/{id}/merchant` | bank fact: the merchant annotation of a bank transaction; read through the merchant data sources of ADR-0007 where it matters | exception |
 | `PUT /transactions/{id}/merchant/review` | review decision over a bank transaction: the API has no transaction list or search endpoint, so a configuration cannot find the operand | exception |
 | `DELETE /transactions/{id}/merchant/review` | review decision over a bank transaction: the API has no transaction list or search endpoint, so a configuration cannot find the operand | exception |
@@ -229,19 +229,19 @@ operation; the status is the first word (`done`, `follow-up` or `exception`).
 | `POST /merchants/{id}/aliases` | `ledger_merchant_alias` (ADR-0007, PR #8) | done |
 | `DELETE /merchants/{id}/aliases/{alias_id}` | `ledger_merchant_alias` (ADR-0007, PR #8) | done |
 | `POST /merchants/{id}/merge` | action: merging destroys one merchant and rewrites references; it is not state to converge | exception |
-| `GET /rates` | data source `ledger_exchange_rates` | done (F5, ADR-0011) |
-| `GET /rates/status` | data source `ledger_rates_status` | done (F5, ADR-0011) |
+| `GET /rates` | data source `ledger_exchange_rates` | done (F5, ADR-0012) |
+| `GET /rates/status` | data source `ledger_rates_status` | done (F5, ADR-0012) |
 | `POST /rates/refreshes` | imperative action (refresh now); rates are provider-sourced data | exception |
-| `GET /deferral-plans` | data sources `ledger_deferral_plan`, `ledger_deferral_plans` | follow-up F3 |
-| `POST /deferral-plans` | `ledger_deferral_plan` (create, revise) | follow-up F3 |
-| `GET /deferral-plans/{id}` | data sources `ledger_deferral_plan`, `ledger_deferral_plans` | follow-up F3 |
-| `PATCH /deferral-plans/{id}` | `ledger_deferral_plan` (create, revise) | follow-up F3 |
-| `POST /deferral-plans/{id}/undo` | `ledger_deferral_plan` destroy (undo) | follow-up F3 |
-| `GET /deferral-plans/{id}/history` | data source of a plan's history | follow-up F3 |
-| `POST /deferral-plans/{id}/adjustments` | `ledger_deferral_plan_adjustment` (create, destroy) | follow-up F3 |
-| `DELETE /deferral-plans/{id}/adjustments/{adjustment_id}` | `ledger_deferral_plan_adjustment` (create, destroy) | follow-up F3 |
-| `POST /deferral-plans/{id}/adjustments/{adjustment_id}/paid` | `paid` attribute of `ledger_deferral_plan_adjustment` (true calls `/paid`, false calls `/unpaid`); user data, not a bank fact | follow-up F3 |
-| `POST /deferral-plans/{id}/adjustments/{adjustment_id}/unpaid` | `paid` attribute of `ledger_deferral_plan_adjustment` (true calls `/paid`, false calls `/unpaid`); user data, not a bank fact | follow-up F3 |
+| `GET /deferral-plans` | data sources `ledger_deferral_plan`, `ledger_deferral_plans` (ADR-0010) | done |
+| `POST /deferral-plans` | `ledger_deferral_plan` (create, revise) (ADR-0010) | done |
+| `GET /deferral-plans/{id}` | data sources `ledger_deferral_plan`, `ledger_deferral_plans` (ADR-0010) | done |
+| `PATCH /deferral-plans/{id}` | `ledger_deferral_plan` (create, revise) (ADR-0010) | done |
+| `POST /deferral-plans/{id}/undo` | `ledger_deferral_plan` destroy (undo) (ADR-0010) | done |
+| `GET /deferral-plans/{id}/history` | data source of a plan's history (ADR-0010) | done |
+| `POST /deferral-plans/{id}/adjustments` | `ledger_deferral_plan_adjustment` (create, destroy) (ADR-0010) | done |
+| `DELETE /deferral-plans/{id}/adjustments/{adjustment_id}` | `ledger_deferral_plan_adjustment` (create, destroy) (ADR-0010) | done |
+| `POST /deferral-plans/{id}/adjustments/{adjustment_id}/paid` | `paid` attribute of `ledger_deferral_plan_adjustment` (true calls `/paid`, false calls `/unpaid`); user data, not a bank fact (ADR-0010) | done |
+| `POST /deferral-plans/{id}/adjustments/{adjustment_id}/unpaid` | `paid` attribute of `ledger_deferral_plan_adjustment` (true calls `/paid`, false calls `/unpaid`); user data, not a bank fact (ADR-0010) | done |
 | `GET /categories` | `ledger_category` and data sources (ADR-0004) | done |
 | `POST /categories` | `ledger_category` (ADR-0004) | done |
 | `GET /categories/{id}` | `ledger_category` and data sources (ADR-0004) | done |

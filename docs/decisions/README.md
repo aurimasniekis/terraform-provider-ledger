@@ -11,6 +11,9 @@ Significant tradeoffs are recorded here as numbered ADRs. Start from [0000-templ
 - [ADR-0007: Merchant targets and merchant records](0007-merchant-targets.md)
 - [ADR-0008: API version compatibility check in Configure](0008-api-version-check.md)
 - [ADR-0009: Client retries and timeouts](0009-client-retries-and-timeouts.md)
-- [ADR-0011: Read-only report data sources](0011-read-only-report-data-sources.md)
+- [ADR-0010: Deferral plans, adjustments, history and occurrence lookup](0010-deferral-plans.md)
+- [ADR-0012: Read-only report data sources](0012-read-only-report-data-sources.md)
+- [ADR-0013: Read-only bank data sources](0013-bank-data-sources.md)
+- [ADR-0014: Users and write-only passwords](0014-users-and-passwords.md)
 
 An accepted ADR is not rewritten. Supersede it with a new ADR and link the two.

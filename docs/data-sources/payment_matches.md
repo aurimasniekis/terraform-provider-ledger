@@ -3,12 +3,12 @@
 page_title: "ledger_payment_matches Data Source - ledger"
 subcategory: ""
 description: |-
-  These are derived reports, not configuration. Balances and bank transaction details are bank-sourced facts from the connected provider; they are kept apart from the person's own corrections (manual payments, status overrides, match decisions) and are not edited here. Payment matches: the link between an occurrence and a bank transaction, with who suggested and decided it. A suggestion is not proof of payment; only confirmed matches count as evidence.
+  These are derived reports, not configuration. Balances and bank transaction details are bank-sourced facts from the connected provider; they are kept apart from the person's own corrections (manual payments, status overrides, match decisions) and are not edited here. They are copied into the Terraform state, so protect the state accordingly. Payment matches: the link between an occurrence and a bank transaction, with who suggested and decided it. A suggestion is not proof of payment; only confirmed matches count as evidence.
 ---
 
 # ledger_payment_matches (Data Source)
 
-These are derived reports, not configuration. Balances and bank transaction details are bank-sourced facts from the connected provider; they are kept apart from the person's own corrections (manual payments, status overrides, match decisions) and are not edited here. Payment matches: the link between an occurrence and a bank transaction, with who suggested and decided it. A suggestion is not proof of payment; only confirmed matches count as evidence.
+These are derived reports, not configuration. Balances and bank transaction details are bank-sourced facts from the connected provider; they are kept apart from the person's own corrections (manual payments, status overrides, match decisions) and are not edited here. They are copied into the Terraform state, so protect the state accordingly. Payment matches: the link between an occurrence and a bank transaction, with who suggested and decided it. A suggestion is not proof of payment; only confirmed matches count as evidence.
 
 ## Example Usage
 

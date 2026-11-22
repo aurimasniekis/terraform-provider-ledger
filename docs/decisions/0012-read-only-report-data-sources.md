@@ -1,4 +1,4 @@
-# ADR-0011: Read-only report data sources
+# ADR-0012: Read-only report data sources
 
 Status: Accepted (2026-11-22)
 
@@ -10,8 +10,8 @@ currencies, so how they are exposed matters for financial integrity.
 
 ## Decision
 
-1. **Thirteen data sources, all read-only**: `ledger_me`, `ledger_grants`, `ledger_auth_methods`, `ledger_merchant_sources`,
-   `ledger_rates_status`, `ledger_exchange_rates`, `ledger_occurrences`, `ledger_occurrence`, `ledger_monthly_summary`, `ledger_outlook`,
+1. **Twelve data sources, all read-only**: `ledger_me`, `ledger_grants`, `ledger_auth_methods`, `ledger_merchant_sources`,
+   `ledger_rates_status`, `ledger_exchange_rates`, `ledger_occurrences`, `ledger_monthly_summary`, `ledger_outlook`,
    `ledger_payment_matches`, `ledger_payment_match` and `ledger_audit_entries`. They need the token's read grants; an API refusal is
    shown as the error it is.
 2. **Money is an object**: `{amount, currency}`, where `amount` is the exact decimal string the API sent (scale and sign

@@ -3,12 +3,12 @@
 page_title: "ledger_payment_match Data Source - ledger"
 subcategory: ""
 description: |-
-  These are derived reports, not configuration. Balances and bank transaction details are bank-sourced facts from the connected provider; they are kept apart from the person's own corrections (manual payments, status overrides, match decisions) and are not edited here. One payment match.
+  These are derived reports, not configuration. Balances and bank transaction details are bank-sourced facts from the connected provider; they are kept apart from the person's own corrections (manual payments, status overrides, match decisions) and are not edited here. They are copied into the Terraform state, so protect the state accordingly. One payment match.
 ---
 
 # ledger_payment_match (Data Source)
 
-These are derived reports, not configuration. Balances and bank transaction details are bank-sourced facts from the connected provider; they are kept apart from the person's own corrections (manual payments, status overrides, match decisions) and are not edited here. One payment match.
+These are derived reports, not configuration. Balances and bank transaction details are bank-sourced facts from the connected provider; they are kept apart from the person's own corrections (manual payments, status overrides, match decisions) and are not edited here. They are copied into the Terraform state, so protect the state accordingly. One payment match.
 
 ## Example Usage
 

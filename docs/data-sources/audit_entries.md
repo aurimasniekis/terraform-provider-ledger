@@ -3,12 +3,12 @@
 page_title: "ledger_audit_entries Data Source - ledger"
 subcategory: ""
 description: |-
-  The audit log, newest first as the API lists it. Needs a token with the audit grant. Details are the API's own JSON and never contain secrets.
+  The audit log, oldest first (in identifier order), as the API lists it: with the default max_items on a busy log the result may be truncated, so use at_gte to reach recent entries. Needs a token with the audit grant. Details are the API's own JSON and never contain secrets.
 ---
 
 # ledger_audit_entries (Data Source)
 
-The audit log, newest first as the API lists it. Needs a token with the audit grant. Details are the API's own JSON and never contain secrets.
+The audit log, oldest first (in identifier order), as the API lists it: with the default max_items on a busy log the result may be truncated, so use at_gte to reach recent entries. Needs a token with the audit grant. Details are the API's own JSON and never contain secrets.
 
 ## Example Usage
 
