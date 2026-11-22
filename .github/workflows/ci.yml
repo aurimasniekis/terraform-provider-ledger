@@ -172,6 +172,9 @@ jobs:
           go-version-file: go.mod
       - name: Validate .goreleaser.yml and build an unsigned snapshot
         run: make release-check release-snapshot
+      # Fails when the notices TARGETS list (scripts/generate-notices.sh) differs from the snapshot's binaries.
+      - name: Check the notices TARGETS list against the snapshot
+        run: make release-targets-check
 
   govulncheck:
     name: govulncheck
