@@ -6,7 +6,7 @@ BINARY   := $(BIN_DIR)/terraform-provider-ledger
 VERSION  ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS  := -X main.version=$(VERSION)
 
-.PHONY: help fmt fmt-check vet lint test build docs docs-check workflow-policy check clean
+.PHONY: help acceptance fmt fmt-check vet lint test build docs docs-check workflow-policy check clean
 
 help: ## list the targets
 	@grep -E '^[a-zA-Z_-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  %-14s %s\n", $$1, $$2}'
@@ -25,6 +25,12 @@ lint: ## golangci-lint with .golangci.yml
 
 test: ## offline unit tests with the race detector (acceptance tests need TF_ACC=1 and are not run here)
 	$(GO) test -race ./...
+
+# Acceptance tests run the client against a real local Ledger built from a go-ledger checkout at the commit pinned in
+# internal/ledgertest/ledger.pin. Fully offline once go-ledger's modules are in the module cache. See docs/decisions/0002.
+acceptance: ## acceptance tests against a local Ledger; needs LEDGER_ACC_SOURCE=<go-ledger checkout at the pinned commit>
+	@test -n "$(LEDGER_ACC_SOURCE)" || { echo "set LEDGER_ACC_SOURCE to a go-ledger checkout at the commit in internal/ledgertest/ledger.pin"; exit 1; }
+	TF_ACC=1 LEDGER_ACC_SOURCE="$(LEDGER_ACC_SOURCE)" $(GO) test -count=1 -timeout 15m ./internal/acceptance/...
 
 build: ## build the provider binary, pure Go (CGO_ENABLED=0)
 	CGO_ENABLED=0 $(GO) build ./...
