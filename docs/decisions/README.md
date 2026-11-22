@@ -9,5 +9,6 @@ Significant tradeoffs are recorded here as numbered ADRs. Start from [0000-templ
 - [ADR-0005: Coverage inventory](0005-coverage-inventory.md)
 - [ADR-0006: Commitment resource and data sources](0006-commitment-resources.md)
 - [ADR-0007: Merchant targets and merchant records](0007-merchant-targets.md)
+- [ADR-0008: Client retries and timeouts](0008-client-retries-and-timeouts.md)
 
 An accepted ADR is not rewritten. Supersede it with a new ADR and link the two.

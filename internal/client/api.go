@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // APIPrefix is the Management API base path (the /api/v1 prefix; see ADR-0002 on the supported major version).
@@ -131,7 +132,7 @@ func (c *Client) do(ctx context.Context, r request) error {
 	if r.Version > 0 {
 		req.Header.Set("If-Match", `"`+strconv.FormatInt(r.Version, 10)+`"`)
 	}
-	resp, err := c.http.Do(req)
+	resp, err := c.send(ctx, req)
 	if err != nil {
 		// *url.Error would repeat the URL; the path is harmless but the message is kept short and token-free.
 		var ue *url.Error
@@ -158,6 +159,36 @@ func (c *Client) do(ctx context.Context, r request) error {
 		return errors.New("the Ledger API answer is not the JSON the client expects")
 	}
 	return nil
+}
+
+// send issues req. Idempotent reads are retried on transient failures (D17); everything else is sent once. Each attempt
+// has its own total timeout from the http.Client, and the caller's context bounds the whole call including the waits.
+func (c *Client) send(ctx context.Context, req *http.Request) (*http.Response, error) {
+	if !retryable(req.Method) {
+		return c.http.Do(req)
+	}
+	sleep := c.sleep
+	if sleep == nil {
+		sleep = sleepCtx
+	}
+	for attempt := 0; ; attempt++ {
+		resp, err := c.http.Do(req)
+		transient := (err != nil && retryableError(ctx, err)) || (err == nil && retryableStatus(resp.StatusCode))
+		if !transient || attempt >= MaxRetries {
+			return resp, err
+		}
+		wait, ok := retryWait(attempt, resp, time.Now())
+		if !ok {
+			return resp, err
+		}
+		if resp != nil {
+			_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4<<10))
+			_ = resp.Body.Close()
+		}
+		if serr := sleep(ctx, wait); serr != nil {
+			return nil, serr
+		}
+	}
 }
 
 func decodeError(resp *http.Response, raw []byte) error {
