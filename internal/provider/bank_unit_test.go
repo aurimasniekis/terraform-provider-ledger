@@ -37,7 +37,16 @@ const (
 func fakeBank(t *testing.T, institutionsStatus int) map[string]func() (tfprotov6.ProviderServer, error) {
 	t.Helper()
 	requireTerraform(t)
-	conn := func(id, status, fresh string) map[string]any {
+	// failed fills the refresh run, the scheduler view and an account's last error, so one connection exercises them.
+	conn := func(id, status, fresh string, failed bool) map[string]any {
+		var lastRun, schedule, accountErr map[string]any
+		if failed {
+			lastRun = map[string]any{"id": "01JD3Y4C8V9M2Q7W5R6T0XZR01", "started_at": "2026-01-31T09:55:00Z", "finished_at": "2026-01-31T09:56:00Z",
+				"outcome": "failed", "error": map[string]any{"kind": "retryable", "code": "PROVIDER_TIMEOUT"}, "accounts_failed": 1,
+				"transactions_inserted": 0, "transactions_rejected": 0}
+			schedule = map[string]any{"state": "backoff", "next_attempt_at": "2026-02-01T06:00:00Z", "consecutive_failures": 2}
+			accountErr = map[string]any{"kind": "retryable", "code": "PROVIDER_TIMEOUT"}
+		}
 		return map[string]any{
 			"id": id, "provider": "enable_banking", "application": "main", "mode": "app", "environment": "production", "account_access": "all",
 			"institution": map[string]any{"id": "BANK_LT", "name": "Example Bank", "country": "LT"},
@@ -46,9 +55,9 @@ func fakeBank(t *testing.T, institutionsStatus int) map[string]func() (tfprotov6
 			"last_error": map[string]any{"kind": "reconnect_required", "code": "SESSION_EXPIRED"},
 			"accounts": []map[string]any{{"id": id, "name": "Everyday", "product": "Current", "currency": "EUR", "identifier_hint": "9876",
 				"no_longer_reported": false, "transactions_through": "2026-01-31",
-				"freshness": map[string]any{"state": fresh, "stale": fresh == "stale", "last_success_at": "2026-01-31T10:00:00Z", "last_attempt_at": nil, "last_error": nil, "notice_code": "transactions_rejected"},
+				"freshness": map[string]any{"state": fresh, "stale": fresh == "stale", "last_success_at": "2026-01-31T10:00:00Z", "last_attempt_at": nil, "last_error": accountErr, "notice_code": "transactions_rejected"},
 				"balances":  []map[string]any{{"type": "booked", "amount": map[string]any{"amount": "123456.78", "currency": "EUR"}, "reference_date": nil, "obtained_at": "2026-01-31T10:00:00Z"}}}},
-			"last_refresh_run": nil, "refresh_running": false, "refresh_available_at": nil, "schedule": nil,
+			"last_refresh_run": lastRun, "refresh_running": false, "refresh_available_at": nil, "schedule": schedule,
 			"as_of": "2026-02-01T00:00:00Z", "version": 3, "created_at": "2026-01-01T00:00:00Z", "updated_at": "2026-01-31T10:00:00Z",
 		}
 	}
@@ -81,11 +90,11 @@ func fakeBank(t *testing.T, institutionsStatus int) map[string]func() (tfprotov6
 		case p == "/bank-applications/missing/institutions":
 			send(404, map[string]any{"code": "not_found", "message": "no application", "request_id": "R"})
 		case p == "/bank-connections" && r.URL.Query().Get("cursor") == "":
-			send(200, map[string]any{"items": []any{conn(bankConnA, "active", "fresh")}, "next_cursor": "c1"})
+			send(200, map[string]any{"items": []any{conn(bankConnA, "active", "fresh", false)}, "next_cursor": "c1"})
 		case p == "/bank-connections":
-			send(200, map[string]any{"items": []any{conn(bankConnB, "reconnect_required", "stale")}, "next_cursor": nil})
+			send(200, map[string]any{"items": []any{conn(bankConnB, "reconnect_required", "stale", true)}, "next_cursor": nil})
 		case p == "/bank-connections/"+bankConnA:
-			send(200, conn(bankConnA, "active", "fresh"))
+			send(200, conn(bankConnA, "active", "fresh", false))
 		default:
 			send(404, map[string]any{"code": "not_found", "message": "no", "request_id": "R"})
 		}
@@ -128,6 +137,14 @@ data "ledger_bank_connection" "one" {
 				resource.TestCheckResourceAttr("data.ledger_bank_connections.stale", "items.#", "1"),
 				resource.TestCheckResourceAttr("data.ledger_bank_connections.stale", "items.0.needs_reconnect", "true"),
 				resource.TestCheckResourceAttr("data.ledger_bank_connections.stale", "items.0.last_error.kind", "reconnect_required"),
+				resource.TestCheckResourceAttr("data.ledger_bank_connections.stale", "items.0.last_refresh_run.outcome", "failed"),
+				resource.TestCheckResourceAttr("data.ledger_bank_connections.stale", "items.0.last_refresh_run.error.kind", "retryable"),
+				resource.TestCheckResourceAttr("data.ledger_bank_connections.stale", "items.0.last_refresh_run.error.code", "PROVIDER_TIMEOUT"),
+				resource.TestCheckResourceAttr("data.ledger_bank_connections.stale", "items.0.last_refresh_run.accounts_failed", "1"),
+				resource.TestCheckResourceAttr("data.ledger_bank_connections.stale", "items.0.schedule.state", "backoff"),
+				resource.TestCheckResourceAttr("data.ledger_bank_connections.stale", "items.0.schedule.consecutive_failures", "2"),
+				resource.TestCheckResourceAttr("data.ledger_bank_connections.stale", "items.0.accounts.0.freshness.last_error.kind", "retryable"),
+				resource.TestCheckResourceAttr("data.ledger_bank_connections.stale", "items.0.accounts.0.freshness.last_error.code", "PROVIDER_TIMEOUT"),
 				resource.TestCheckResourceAttr("data.ledger_bank_connection.one", "institution.name", "Example Bank"),
 				resource.TestCheckResourceAttr("data.ledger_bank_connection.one", "accounts.0.currency", "EUR"),
 				resource.TestCheckResourceAttr("data.ledger_bank_connection.one", "accounts.0.freshness.notice_code", "transactions_rejected"),
