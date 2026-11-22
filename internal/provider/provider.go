@@ -181,7 +181,7 @@ func (p *ledgerProvider) Resources(context.Context) []func() resource.Resource {
 }
 
 func (p *ledgerProvider) DataSources(context.Context) []func() datasource.DataSource {
-	return []func() datasource.DataSource{
+	return append([]func() datasource.DataSource{
 		NewCategoryDataSource, NewLabelDataSource, NewBucketDataSource,
 		NewCategoriesDataSource, NewLabelsDataSource, NewBucketsDataSource,
 		NewObjectOrganisationDataSource, NewBucketMembersDataSource,
@@ -194,5 +194,5 @@ func (p *ledgerProvider) DataSources(context.Context) []func() datasource.DataSo
 		NewUserDataSource, NewUsersDataSource,
 		// Manual payments and status overrides (task F4, ADR-0011).
 		NewManualPaymentDataSource, NewManualPaymentsDataSource, NewStatusOverrideDataSource,
-	}
+	}, reportDataSources()...)
 }

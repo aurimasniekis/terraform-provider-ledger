@@ -58,7 +58,7 @@ func TestOrganisationTypeNames(t *testing.T) {
 		ds = append(ds, m.TypeName)
 	}
 	wantRes := "ledger_category ledger_label ledger_bucket ledger_category_assignment ledger_label_assignment ledger_bucket_member ledger_merchant ledger_merchant_alias ledger_commitment ledger_deferral_plan ledger_deferral_plan_adjustment ledger_user ledger_user_password ledger_manual_payment ledger_occurrence_status_override"
-	wantDS := "ledger_category ledger_label ledger_bucket ledger_categories ledger_labels ledger_buckets ledger_object_organisation ledger_bucket_members ledger_merchant ledger_merchants ledger_commitment ledger_commitments ledger_deferral_plan ledger_deferral_plans ledger_deferral_plan_history ledger_occurrence ledger_bank_applications ledger_bank_institutions ledger_bank_connections ledger_bank_connection ledger_user ledger_users ledger_manual_payment ledger_manual_payments ledger_occurrence_status_override"
+	wantDS := "ledger_category ledger_label ledger_bucket ledger_categories ledger_labels ledger_buckets ledger_object_organisation ledger_bucket_members ledger_merchant ledger_merchants ledger_commitment ledger_commitments ledger_deferral_plan ledger_deferral_plans ledger_deferral_plan_history ledger_occurrence ledger_bank_applications ledger_bank_institutions ledger_bank_connections ledger_bank_connection ledger_user ledger_users ledger_manual_payment ledger_manual_payments ledger_occurrence_status_override ledger_me ledger_grants ledger_auth_methods ledger_merchant_sources ledger_rates_status ledger_exchange_rates ledger_occurrences ledger_monthly_summary ledger_outlook ledger_payment_matches ledger_payment_match ledger_audit_entries"
 	if got := strings.Join(res, " "); got != wantRes {
 		t.Errorf("resources %q", got)
 	}
