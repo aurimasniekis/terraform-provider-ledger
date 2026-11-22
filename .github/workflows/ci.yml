@@ -153,7 +153,11 @@ jobs:
         with:
           go-version-file: go.mod
       # The server, its database and its token are all local and temporary; no bank, model or rate service is used.
+      # terraform-plugin-testing installs this exact Terraform CLI (the same version tfplugindocs is pinned to in
+      # main.go, ADR-0001 section 10) instead of the latest release or whatever the runner image ships.
       - name: Acceptance tests against the pinned Ledger
+        env:
+          TF_ACC_TERRAFORM_VERSION: "1.11.4"
         run: make acceptance LEDGER_ACC_SOURCE="$GITHUB_WORKSPACE/go-ledger"
 
   release-config:
