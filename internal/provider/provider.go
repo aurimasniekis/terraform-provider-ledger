@@ -171,6 +171,7 @@ func (p *ledgerProvider) Resources(context.Context) []func() resource.Resource {
 		NewMerchantResource, NewMerchantAliasResource,
 		// Commitments (task T4, decision D6, D9, D14).
 		NewCommitmentResource,
+		NewManualPaymentResource, NewStatusOverrideResource,
 	}
 }
 
@@ -181,5 +182,6 @@ func (p *ledgerProvider) DataSources(context.Context) []func() datasource.DataSo
 		NewObjectOrganisationDataSource, NewBucketMembersDataSource,
 		NewMerchantDataSource, NewMerchantsDataSource,
 		NewCommitmentDataSource, NewCommitmentsDataSource,
+		NewManualPaymentDataSource, NewManualPaymentsDataSource, NewStatusOverrideDataSource,
 	}
 }
