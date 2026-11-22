@@ -30,6 +30,8 @@ type fakeDeferrals struct {
 	plan  *client.DeferralPlan
 	next  int
 	calls []string
+	// failPaid makes the next /paid call fail with a 500, to exercise a create whose second call fails.
+	failPaid bool
 }
 
 func (f *fakeDeferrals) id() string {
@@ -174,6 +176,11 @@ func (f *fakeDeferrals) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 			adj.RemovedAt = &now
 		case len(parts) == 5 && parts[4] == "paid":
+			if f.failPaid {
+				f.failPaid = false
+				fail(500, "internal_error")
+				return
+			}
 			adj.PaidAt, adj.PaidBy = &now, &client.Actor{Kind: "token", Via: &via}
 		case len(parts) == 5 && parts[4] == "unpaid":
 			adj.PaidAt, adj.PaidBy = nil, nil
@@ -188,7 +195,7 @@ func newFakeDeferrals(t *testing.T) (*fakeDeferrals, map[string]func() (tfprotov
 	t.Helper()
 	requireTerraform(t)
 	f := &fakeDeferrals{}
-	srv := httptest.NewServer(f)
+	srv := httptest.NewServer(withAPIDocument(f))
 	t.Cleanup(srv.Close)
 	t.Setenv("LEDGER_ENDPOINT", srv.URL)
 	t.Setenv("LEDGER_TOKEN", "unit-token")
@@ -323,6 +330,44 @@ func TestDeferralPlanUndoneOutsideTerraformIsRecreated(t *testing.T) {
 					func(*terraform.State) error {
 						if f.plan.State != "active" || f.plan.Version != 1 {
 							return fmt.Errorf("a new plan was expected: %+v", f.plan)
+						}
+						return nil
+					},
+				),
+			},
+		},
+	})
+}
+
+// Creating an adjustment with paid = true whose /paid call fails leaves it recorded and unpaid. Terraform taints it, so the next
+// apply replaces it: the first stays in Ledger as removed history and exactly one adjustment is left active and paid.
+func TestDeferralAdjustmentPaidFailureIsTaintedAndReplaced(t *testing.T) {
+	f, factories := newFakeDeferrals(t)
+	cfg := planCfg("personal", "2026-03-20", "", fmt.Sprintf(feeCfg, true))
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			{
+				PreConfig:   func() { f.mu.Lock(); f.failPaid = true; f.mu.Unlock() },
+				Config:      cfg,
+				ExpectError: regexp.MustCompile("marking it paid failed"),
+			},
+			{
+				Config: cfg,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("ledger_deferral_plan_adjustment.fee", "paid", "true"),
+					func(*terraform.State) error {
+						f.mu.Lock()
+						defer f.mu.Unlock()
+						if len(f.plan.Adjustments) != 2 {
+							return fmt.Errorf("want the failed adjustment kept as history plus its replacement, got %d", len(f.plan.Adjustments))
+						}
+						first, second := f.plan.Adjustments[0], f.plan.Adjustments[1]
+						if first.RemovedAt == nil || first.PaidAt != nil {
+							return fmt.Errorf("the first adjustment should be removed and unpaid: %+v", first)
+						}
+						if second.RemovedAt != nil || second.PaidAt == nil {
+							return fmt.Errorf("the replacement should be active and paid: %+v", second)
 						}
 						return nil
 					},

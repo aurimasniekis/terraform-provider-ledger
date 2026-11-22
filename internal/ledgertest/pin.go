@@ -11,10 +11,12 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/aurimasniekis/terraform-provider-ledger/internal/client"
 )
 
 // SupportedAPIMajor is the Management API major version (the /api/v1 prefix) this provider speaks.
-const SupportedAPIMajor = 1
+const SupportedAPIMajor = client.SupportedAPIMajor
 
 //go:embed ledger.pin
 var pinFile string

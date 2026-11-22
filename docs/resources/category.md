@@ -26,6 +26,9 @@ resource "ledger_category" "rent" {
   parent_id = ledger_category.housing.id
 }
 
+# A parent cannot be archived while it still has active children (Ledger answers 409). Archive the children first, apply,
+# and only then set archived = true on the parent: setting it on both in one apply fails.
+
 # Archive instead of destroying a category that is still assigned: archiving keeps every historical assignment.
 resource "ledger_category" "old_utilities" {
   name      = "Utilities (old)"
@@ -43,9 +46,9 @@ resource "ledger_category" "old_utilities" {
 
 ### Optional
 
-- `archived` (Boolean) Whether the category is archived. Archiving keeps the category and every assignment to it (history stays readable) and stops anything new from using it. Archive instead of destroying when anything is assigned. Defaults to `false`.
+- `archived` (Boolean) Whether the category is archived. Archiving keeps the category and every assignment to it (history stays readable) and stops anything new from using it. Archive instead of destroying when anything is assigned. Defaults to `false`. A category that still has active children cannot be archived (HTTP 409): archive the children first and the parent in a later apply, because setting `archived = true` on a parent and its children in one apply fails when the parent is archived first.
 - `parent_id` (String) The identifier of the parent category. The parent must be an active top-level category. Omit for a top-level category. A category that has children cannot be given a parent.
-- `reassign_to` (String) Used only when this resource is destroyed: the identifier of an active category that existing assignments move to. Without it, destroying a category that is still assigned fails with `definition_in_use`. The assignments become the person's own (origin user). Not read back from Ledger, so it is empty after an import.
+- `reassign_to` (String) Used only when this resource is destroyed: the identifier of an active category that existing assignments move to. Without it, destroying a category that is still assigned fails with `definition_in_use`. Assignments the person made (origin user) stay the person's; assignments made by a rule or a model keep their origin. Not read back from Ledger, so it is empty after an import.
 
 ### Read-Only
 

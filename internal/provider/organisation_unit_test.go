@@ -114,7 +114,7 @@ func requireTerraform(t *testing.T) {
 func TestLabelLifecycleAgainstFakeLedger(t *testing.T) {
 	requireTerraform(t)
 	f := &fakeLedger{labels: map[string]*client.Definition{}}
-	srv := httptest.NewServer(f)
+	srv := httptest.NewServer(withAPIDocument(f))
 	t.Cleanup(srv.Close)
 	t.Setenv("LEDGER_ENDPOINT", srv.URL)
 	t.Setenv("LEDGER_TOKEN", "unit-token")

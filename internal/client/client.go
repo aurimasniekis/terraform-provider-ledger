@@ -6,16 +6,18 @@
 package client
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
 )
 
-// DefaultTimeout bounds every request made through the client. Timeout and retry limits are still an open product
-// decision; this is a conservative placeholder, not a decided value.
+// DefaultTimeout is the total time one attempt may take (decision D17: 30 seconds). The connect timeout and the retry
+// policy for idempotent reads are in retry.go.
 const DefaultTimeout = 30 * time.Second
 
 // Secret is a credential. It never prints its value: fmt verbs, %v, %+v and %#v all show a redaction marker.
@@ -46,6 +48,8 @@ type Config struct {
 type Client struct {
 	base *url.URL
 	http *http.Client
+	// sleep waits between retries; nil means sleepCtx. Tests replace it.
+	sleep func(context.Context, time.Duration) error
 }
 
 // New validates cfg and builds a Client. It makes no network call.
@@ -65,11 +69,18 @@ func New(cfg Config) (*Client, error) {
 		base: base,
 		http: &http.Client{
 			Timeout:   timeout,
-			Transport: &authTransport{host: base.Host, token: cfg.Token, next: http.DefaultTransport},
+			Transport: &authTransport{host: base.Host, token: cfg.Token, next: newTransport()},
 			// Never follow a redirect: the token must only go to the configured server.
 			CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
 		},
 	}, nil
+}
+
+// newTransport clones the default transport with the D17 connect timeout.
+func newTransport() http.RoundTripper {
+	t := http.DefaultTransport.(*http.Transport).Clone()
+	t.DialContext = (&net.Dialer{Timeout: DefaultConnectTimeout, KeepAlive: 30 * time.Second}).DialContext
+	return t
 }
 
 // BaseURL returns a copy of the server's base URL.

@@ -11,8 +11,8 @@ must run in CI.
 ## Decision
 
 1. **Pinned build.** `internal/ledgertest/ledger.pin` records a full go-ledger commit and the OpenAPI `info.version` it
-   serves. The pinned commit is `fad378e62a36d1713c1449f36684a3988ddeea1e`, a commit of go-ledger's `work` branch
-   (API 1.0.0). Moving the pin is a reviewed change to that file.
+   serves. The pinned commit is `b595e3bbdc2ce6ec255da38d6039406ef229c511`, a commit of go-ledger's `work` branch
+   (API 1.0.0; ADR-0005 describes the operations it serves). Moving the pin is a reviewed change to that file.
 2. **Built locally.** `ledgertest.Start` requires `LEDGER_ACC_SOURCE`, a go-ledger checkout. It fails unless the checkout
    is exactly at the pin with no changes to tracked files, then builds `./cmd/ledger` with `CGO_ENABLED=0`.
 3. **Isolated.** A temporary directory holds the database; the key-encryption key is a synthetic constant; both listeners
@@ -26,7 +26,7 @@ must run in CI.
    is never logged, and dies with the temporary database. The product's own Terraform-style provisioning is not used.
 5. **Compatibility check.** The harness reads `info.version` from the served `/api/v1/openapi.json` and fails unless it is
    on the supported major (`SupportedAPIMajor`, the `/api/v1` prefix) and equals the pinned version, so API drift shows
-   up as a deliberate pin update.
+   up as a deliberate pin update. The provider checks the major version at run time too (ADR-0008).
 6. **Opt-in.** Tests skip unless `TF_ACC=1` (the convention of terraform-plugin-testing), so `make test` and
    `make check` stay free of network services and fast. `make acceptance` and a CI job (`acceptance`) run them; CI checks out go-ledger
    (public) at the pinned commit read from the pin file.

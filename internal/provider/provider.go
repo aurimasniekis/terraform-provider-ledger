@@ -7,6 +7,7 @@ package provider
 
 import (
 	"context"
+	"errors"
 	"os"
 
 	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
@@ -27,6 +28,8 @@ type ledgerProvider struct {
 	version  string
 	getenv   func(string) string
 	readFile func(string) ([]byte, error)
+	// checkAPIVersion is the API version check (ADR-0008). Nil means the real check; tests replace it.
+	checkAPIVersion func(context.Context, *client.Client) (client.APIVersionCheck, error)
 }
 
 type providerModel struct {
@@ -53,7 +56,8 @@ func (p *ledgerProvider) Schema(_ context.Context, _ provider.SchemaRequest, res
 			"Each setting can also come from the environment. **Precedence** (first one set wins, and an unusable source " +
 			"is an error rather than a fall-through): `endpoint` attribute, then `" + EnvEndpoint + "`; " +
 			"`token` attribute, then `token_file` attribute, then `" + EnvToken + "`, then `" + EnvTokenFile + "`. " +
-			"Blank values count as unset.",
+			"Blank values count as unset. On configuration the provider reads the API version the server serves and refuses a " +
+			"server on an unsupported major version (ADR-0008).",
 		Attributes: map[string]schema.Attribute{
 			"endpoint": schema.StringAttribute{
 				Optional: true,
@@ -134,6 +138,26 @@ func (p *ledgerProvider) Configure(ctx context.Context, req provider.ConfigureRe
 			"The API token will be sent over plain http to a non-local host. Use an https endpoint.")
 	}
 
+	check := p.checkAPIVersion
+	if check == nil {
+		check = func(ctx context.Context, c *client.Client) (client.APIVersionCheck, error) {
+			return c.CheckAPIVersion(ctx)
+		}
+	}
+	v, err := check(ctx, c)
+	if err != nil {
+		summary := "Cannot verify the Ledger API version"
+		var mismatch *client.APIMajorError
+		if errors.As(err, &mismatch) {
+			summary = "Unsupported Ledger API version"
+		}
+		resp.Diagnostics.AddAttributeError(path.Root("endpoint"), summary, err.Error())
+		return
+	}
+	if v.Warning != "" {
+		resp.Diagnostics.AddAttributeWarning(path.Root("endpoint"), "Newer Ledger API version", v.Warning)
+	}
+
 	resp.DataSourceData = c
 	resp.ResourceData = c
 }
@@ -147,7 +171,7 @@ func (p *ledgerProvider) Resources(context.Context) []func() resource.Resource {
 		NewMerchantResource, NewMerchantAliasResource,
 		// Commitments (task T4, decision D6, D9, D14).
 		NewCommitmentResource,
-		// Deferral plans (task F3, go-ledger ADR-0050, ADR-0008 of this provider).
+		// Deferral plans (task F3, go-ledger ADR-0050, ADR-0010 of this provider).
 		NewDeferralPlanResource, NewDeferralAdjustmentResource,
 	}
 }

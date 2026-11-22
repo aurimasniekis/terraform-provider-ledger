@@ -73,7 +73,7 @@ func (r *deferralAdjustmentResource) Schema(_ context.Context, _ resource.Schema
 			"whether or not the occurrence itself is paid. `paid` is your own marker, reversible, and **not payment evidence**: marking a " +
 			"charge paid does not touch the occurrence, and paying the occurrence does not touch the charge.\n\n" +
 			"Only `paid` can change in place; changing the kind, amount, currency or note replaces the adjustment (the old one is removed " +
-			"and kept by Ledger as history). **Destroy removes the adjustment** (a paid one too); Ledger keeps it as history. Ledger refuses " +
+			"and kept by Ledger as history). If creating with `paid = true` fails at the mark-paid call, the adjustment is tainted and the next apply replaces it; the first stays in Ledger as removed history. **Destroy removes the adjustment** (a paid one too); Ledger keeps it as history. Ledger refuses " +
 			"to undo a plan while an adjustment is still planned, so destroying the plan's configuration removes these first. An adjustment that is " +
 			"found removed outside Terraform, or whose plan was undone, is removed from state on refresh.\n\n" +
 			"Import with `<plan id>/<adjustment id>`: `terraform import ledger_deferral_plan_adjustment.example <plan id>/<adjustment id>`.",
@@ -166,9 +166,10 @@ func (r *deferralAdjustmentResource) Create(ctx context.Context, req resource.Cr
 	if plan.Paid.ValueBool() {
 		marked, err := r.client.MarkDeferralAdjustmentPaid(ctx, planID, created.ID, updated.Version)
 		if err != nil {
-			// The adjustment exists: keep it in state (unpaid) so a retry updates it instead of recording a second one.
+			// The adjustment exists: keep it in state (unpaid). Returning an error taints the resource, so the next apply replaces it:
+			// the first adjustment stays in Ledger as removed history and one new adjustment is recorded (never two active).
 			resp.Diagnostics.Append(resp.State.Set(ctx, deferralAdjustmentResourceFromAPI(planID, *created))...)
-			resp.Diagnostics.AddError("The adjustment was recorded but marking it paid failed", deferralHint(err)+" Apply again to retry.")
+			resp.Diagnostics.AddError("The adjustment was recorded but marking it paid failed", deferralHint(err)+" The adjustment is tainted: apply again to replace it (the first one stays in Ledger as removed history).")
 			return
 		}
 		if a := findAdjustment(marked, created.ID); a != nil {

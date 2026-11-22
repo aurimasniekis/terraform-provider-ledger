@@ -1,4 +1,4 @@
-# ADR-0008: Deferral plans, adjustments, history and occurrence lookup
+# ADR-0010: Deferral plans, adjustments, history and occurrence lookup
 
 Status: Accepted (2026-11-22)
 
@@ -36,8 +36,9 @@ paid marker that is the person's own statement and never payment evidence.
    adjustment is removed and kept by Ledger as history), and `paid` (default `false`) toggles in place by calling Ledger's paid and unpaid
    operations. `paid` is the person's own marker and is documented as not payment evidence for the occurrence. Destroy removes the
    adjustment, paid or not. Import by `<plan id>/<adjustment id>`. A removed adjustment, or one on an undone plan, leaves state on read. When
-   creating with `paid = true` fails at the second call, the adjustment stays in state (unpaid) with an error, so a retry never records a
-   second one.
+   creating with `paid = true` fails at the second call, the adjustment stays in state (unpaid) with an error, so Terraform taints it and the next apply replaces it: the first adjustment stays
+   in Ledger as removed history and one new one is recorded, so there is never a second active charge (but the history shows an extra
+   added and removed pair).
 7. **Undo is refused while a fee is planned** (409 `deferral_adjustments_unpaid`). The adjustment resources depend on their plan, so Terraform
    destroys them first and the undo succeeds. Where the refusal still happens (an adjustment recorded outside Terraform), the error says
    to mark it paid or remove it.

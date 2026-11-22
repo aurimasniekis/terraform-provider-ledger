@@ -15,7 +15,7 @@ import (
 )
 
 func newTestProvider(env map[string]string) *ledgerProvider {
-	return &ledgerProvider{version: "test", getenv: envOf(env), readFile: os.ReadFile}
+	return &ledgerProvider{version: "test", getenv: envOf(env), readFile: os.ReadFile, checkAPIVersion: stubAPIVersion}
 }
 
 func schemaOf(t *testing.T, p provider.Provider) provider.SchemaResponse {

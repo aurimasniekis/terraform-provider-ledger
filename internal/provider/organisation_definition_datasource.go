@@ -122,6 +122,14 @@ func (d *definitionDataSource) Configure(_ context.Context, req datasource.Confi
 	d.client = clientFromProviderData(req.ProviderData, &resp.Diagnostics)
 }
 
+// parentMatches reports whether a category's parent is the one parent_id names; "none" means a top-level category.
+func parentMatches(actual *string, want string) bool {
+	if want == "none" {
+		return actual == nil
+	}
+	return actual != nil && *actual == want
+}
+
 func (d *definitionDataSource) Read(ctx context.Context, req datasource.ReadRequest, resp *datasource.ReadResponse) {
 	var id, name, parent types.String
 	resp.Diagnostics.Append(req.Config.GetAttribute(ctx, path.Root("id"), &id)...)
@@ -172,7 +180,7 @@ func (d *definitionDataSource) Read(ctx context.Context, req datasource.ReadRequ
 			return
 		}
 	}
-	if !id.IsNull() && !parent.IsNull() && (found.ParentID == nil || *found.ParentID != parent.ValueString()) {
+	if !id.IsNull() && !parent.IsNull() && !parentMatches(found.ParentID, parent.ValueString()) {
 		resp.Diagnostics.AddAttributeError(path.Root("parent_id"), "Parent does not match", "The category with that id has a different parent than parent_id says.")
 		return
 	}
