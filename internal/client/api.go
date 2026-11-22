@@ -64,6 +64,12 @@ func IsNotFound(err error) bool {
 	return errors.As(err, &ae) && ae.Status == http.StatusNotFound
 }
 
+// IsForbidden reports whether err is a 403 from the API.
+func IsForbidden(err error) bool {
+	var ae *APIError
+	return errors.As(err, &ae) && ae.Status == http.StatusForbidden
+}
+
 // HasCode reports whether err is an API error with the given code.
 func HasCode(err error, code string) bool {
 	var ae *APIError

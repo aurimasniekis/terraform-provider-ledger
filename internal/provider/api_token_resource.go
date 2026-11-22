@@ -104,7 +104,7 @@ func (r *apiTokenResource) Schema(_ context.Context, _ resource.SchemaRequest, r
 			"~> **The token is stored in the Terraform state.** This is the one secret the provider keeps in state (every other secret is write-only), because Ledger, not you, generates it. " +
 			"Encrypt the state, restrict who can read it, prefer short-lived tokens (`expires_at`) and narrow `grants`, and treat the state like the token. `secret` is marked sensitive, which hides it from plan output only. " +
 			"Never print it with `output` unless that output is also `sensitive = true`.\n\n" +
-			"A token cannot be changed: changing any argument **replaces** it (the old one is revoked, then a new one is created). " +
+			"A token cannot be changed: changing any argument **replaces** it (the old one is revoked, then a new one is created). For a zero-gap rotation, set `lifecycle { create_before_destroy = true }`, so the new token is created before the old one is revoked; without it, a create that fails (for example, because the provider does not run with the root token) leaves the old token revoked and nothing in its place. " +
 			"Destroying the resource **revokes** the token at once, and Ledger also revokes every token created through it.\n\n" +
 			"Tokens created this way are owned by the root account and bounded by its role. " + apiTokenGrantNote + "\n\n" +
 			"Not importable: Ledger never serves a token again, so an imported token would have no secret. Use the `ledger_api_token` data source to read the metadata of tokens that exist.",
@@ -231,7 +231,7 @@ func (r *apiTokenResource) Read(ctx context.Context, req resource.ReadRequest, r
 			resp.State.RemoveResource(ctx)
 			return
 		}
-		resp.Diagnostics.AddError("Reading the API token failed", err.Error())
+		resp.Diagnostics.AddError("Reading the API token failed", apiTokenReadHint(err))
 		return
 	}
 	if t.Status == client.TokenRevoked {
@@ -239,6 +239,12 @@ func (r *apiTokenResource) Read(ctx context.Context, req resource.ReadRequest, r
 		return
 	}
 	resp.Diagnostics.Append(st.applyMetadata(t)...)
+	if t.Status == client.TokenExpired {
+		// The secret stays in state: Ledger cannot serve it again, and a past expires_at could not be re-created. Say so on every refresh.
+		resp.Diagnostics.AddWarning("API token expired",
+			"Ledger reports this token as expired, so its secret no longer works and anything that uses the `secret` attribute will fail. "+
+				"The state keeps the expired token. Rotate it with `terraform apply -replace`, or set a new `expires_at`.")
+	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, st)...)
 }
 
