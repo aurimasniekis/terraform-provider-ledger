@@ -92,6 +92,8 @@ func (r *userResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 			"Do not apply again to replace it: the replacement disables the old user and then fails, because the username is taken. " +
 			"Recover with `terraform untaint ledger_user.<name>` and apply, which disables the user in place; or `terraform state rm ledger_user.<name>`, " +
 			"`terraform import` it by identifier, and apply.\n\n" +
+			"If you already applied again, the old user is disabled (as configured), the new create fails because the username is taken, and nothing is left in state: " +
+			"run `terraform import ledger_user.<name> <id>` and apply, which shows no change once `disabled = true` matches.\n\n" +
 			"Import with the identifier: `terraform import ledger_user.example <id>`.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{Computed: true, MarkdownDescription: "The Ledger identifier (a ULID).",
@@ -136,7 +138,9 @@ func (r *userResource) Create(ctx context.Context, req resource.CreateRequest, r
 		yes := true
 		d, err := r.client.UpdateUser(ctx, u.ID, u.Version, client.UserPatch{Disabled: &yes})
 		if err != nil {
-			resp.Diagnostics.AddError("Disabling the new user failed", "It was created but is not disabled. "+userHint(err))
+			resp.Diagnostics.AddError("Disabling the new user failed", "It was created but is not disabled. "+userHint(err)+
+				" Do not apply again: the replacement would disable this user and then fail because the username is taken. "+
+				"Run `terraform untaint ledger_user.<name>` and apply, or `terraform state rm ledger_user.<name>` and `terraform import ledger_user.<name> "+u.ID+"`, then apply.")
 			return
 		}
 		resp.Diagnostics.Append(resp.State.Set(ctx, userModelFrom(d))...)
