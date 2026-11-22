@@ -345,6 +345,27 @@ func TestUserDestroyLastAdministratorIsRefused(t *testing.T) {
 	})
 }
 
+func TestUserCreateDisableFailureDiagnosticHasRecovery(t *testing.T) {
+	f, factories := newFakeUsers(t)
+	resource.UnitTest(t, resource.TestCase{
+		ProtoV6ProviderFactories: factories,
+		Steps: []resource.TestStep{
+			// The only administrator cannot be disabled, so the disable step after the create fails.
+			{Config: userCfg("solo", "administrator", "", true), ExpectError: regexp.MustCompile(
+				`(?s)Disabling the new user failed.*not\s+disabled.*Do\s+not\s+apply\s+again.*terraform\s+untaint\s+ledger_user\.<name>.*terraform\s+state\s+rm\s+ledger_user\.<name>.*terraform\s+import\s+ledger_user\.<name>\s+01JD`)},
+			// A second administrator lets the cleanup destroy of the tainted user succeed.
+			{PreConfig: func() {
+				f.mu.Lock()
+				f.next++
+				id := fmt.Sprintf("01JD3Y4C8V9M2Q7W5R6T0XZ%03d", f.next)
+				f.u[id] = &client.User{ID: id, Username: "second", Role: client.RoleAdministrator, Version: 1}
+				f.order = append(f.order, id)
+				f.mu.Unlock()
+			}, Config: userCfg("solo", "administrator", "", true), ExpectError: regexp.MustCompile(`(?s)Creating the user failed|taken|already`)},
+		},
+	})
+}
+
 func TestUserDataSources(t *testing.T) {
 	f, factories := newFakeUsers(t)
 	f.mu.Lock()
