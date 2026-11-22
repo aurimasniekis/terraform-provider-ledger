@@ -91,7 +91,7 @@ jobs:
         uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: go.mod
-      - name: Offline unit tests with the race detector
+      - name: Unit tests with the race detector
         run: make test
 
   go-build:
@@ -127,6 +127,33 @@ jobs:
       # main.go (ADR-0001 section 10), so the job never uses the terraform on PATH; hc-install downloads it.
       - name: Regenerate and validate docs, fail on drift
         run: make docs-check
+
+  acceptance:
+    name: acceptance (local Ledger, no network services)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Read the Ledger pin
+        id: pin
+        run: echo "commit=$(sed -n 's/^commit=//p' internal/ledgertest/ledger.pin)" >> "$GITHUB_OUTPUT"
+      - name: Check out Ledger at the pinned commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: aurimasniekis/go-ledger
+          ref: ${{ steps.pin.outputs.commit }}
+          path: go-ledger
+          persist-credentials: false
+      - name: Set up Go from go.mod
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version-file: go.mod
+      # The server, its database and its token are all local and temporary; no bank, model or rate service is used.
+      - name: Acceptance tests against the pinned Ledger
+        run: make acceptance LEDGER_ACC_SOURCE="$GITHUB_WORKSPACE/go-ledger"
 
   govulncheck:
     name: govulncheck
