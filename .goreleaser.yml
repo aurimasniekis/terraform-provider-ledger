@@ -29,8 +29,11 @@ builds:
       - arm
       - arm64
     ignore:
+      # Go has no darwin/386 or darwin/arm target (go tool dist list); "go build" rejects both.
       - goos: darwin
         goarch: "386"
+      - goos: darwin
+        goarch: arm
       - goos: windows
         goarch: arm
     binary: "{{ .ProjectName }}_v{{ .Version }}"
