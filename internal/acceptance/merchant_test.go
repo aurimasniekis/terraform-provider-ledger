@@ -216,7 +216,7 @@ resource "ledger_merchant_alias" "branch" {
 					func(*terraform.State) error {
 						ms, err := c.ListMerchants(context.Background(), true)
 						if err != nil || len(ms) != 1 || len(ms[0].Aliases) != 1 {
-							return fmt.Errorf("the display-name alias must be reused, not duplicated: %v %+v", err, ms)
+							return fmt.Errorf("the display-name alias must be reused, not duplicated: %w %+v", err, ms)
 						}
 						return nil
 					},
