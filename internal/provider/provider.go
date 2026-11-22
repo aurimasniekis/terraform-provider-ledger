@@ -144,6 +144,7 @@ func (p *ledgerProvider) Resources(context.Context) []func() resource.Resource {
 		// Organisation (task T3, decision D12, go-ledger ADR-0053).
 		NewCategoryResource, NewLabelResource, NewBucketResource,
 		NewCategoryAssignmentResource, NewLabelAssignmentResource, NewBucketMemberResource,
+		NewMerchantResource, NewMerchantAliasResource,
 	}
 }
 
@@ -152,5 +153,6 @@ func (p *ledgerProvider) DataSources(context.Context) []func() datasource.DataSo
 		NewCategoryDataSource, NewLabelDataSource, NewBucketDataSource,
 		NewCategoriesDataSource, NewLabelsDataSource, NewBucketsDataSource,
 		NewObjectOrganisationDataSource, NewBucketMembersDataSource,
+		NewMerchantDataSource, NewMerchantsDataSource,
 	}
 }

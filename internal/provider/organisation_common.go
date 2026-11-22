@@ -12,6 +12,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"golang.org/x/text/unicode/norm"
 
 	"github.com/aurimasniekis/terraform-provider-ledger/internal/client"
 )
@@ -42,34 +43,52 @@ func clientFromProviderData(data any, diags *diag.Diagnostics) *client.Client {
 
 // normalisedNameValidator rejects a name the server would change: Ledger trims names and collapses white space, so
 // a name that differs after that could never match what it reads back and would show a permanent difference.
-type normalisedNameValidator struct{}
+type normalisedNameValidator struct{ max int }
 
-func (normalisedNameValidator) Description(context.Context) string {
-	return "a name of 1 to 80 characters without leading, trailing or repeated white space"
+func (v normalisedNameValidator) Description(context.Context) string {
+	return fmt.Sprintf("a name of 1 to %d characters without leading, trailing or repeated white space", v.max)
 }
 
 func (v normalisedNameValidator) MarkdownDescription(ctx context.Context) string {
 	return v.Description(ctx)
 }
 
-func (normalisedNameValidator) ValidateString(_ context.Context, req validator.StringRequest, resp *validator.StringResponse) {
+func (v normalisedNameValidator) ValidateString(_ context.Context, req validator.StringRequest, resp *validator.StringResponse) {
 	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
 		return
 	}
 	s := req.ConfigValue.ValueString()
+	if !norm.NFC.IsNormalString(s) {
+		resp.Diagnostics.AddAttributeError(req.Path, "Name is not Unicode-normalised",
+			"Ledger stores names in Unicode normalisation form NFC (composed characters), so a name in another form would be stored "+
+				"differently from what is written here. Write the name in NFC.")
+		return
+	}
 	if strings.Join(strings.Fields(s), " ") != s {
 		resp.Diagnostics.AddAttributeError(req.Path, "Name is not normalised",
 			"Ledger trims names and collapses white space, so the name must not start or end with white space or contain "+
 				"runs of white space. Write it the way Ledger stores it.")
 		return
 	}
-	if n := utf8.RuneCountInString(s); n < 1 || n > maxDefinitionNameLength {
+	if n := utf8.RuneCountInString(s); n < 1 || n > v.max {
 		resp.Diagnostics.AddAttributeError(req.Path, "Invalid name length",
-			fmt.Sprintf("The name must be 1 to %d characters, got %d.", maxDefinitionNameLength, n))
+			fmt.Sprintf("The name must be 1 to %d characters, got %d.", v.max, n))
 	}
 }
 
-func nameValidator() validator.String { return normalisedNameValidator{} }
+func nameValidator() validator.String { return normalisedNameValidator{max: maxDefinitionNameLength} }
+
+// maxMerchantNameLength is the longest merchant display name or alias Ledger accepts (characters; ADR-0058 of go-ledger).
+const maxMerchantNameLength = 200
+
+// aliasKey is the key Ledger matches aliases by: NFC, lower case, white space collapsed (go-ledger AliasKey).
+func aliasKey(s string) string {
+	return strings.ToLower(strings.Join(strings.Fields(norm.NFC.String(s)), " "))
+}
+
+func merchantNameValidator() validator.String {
+	return normalisedNameValidator{max: maxMerchantNameLength}
+}
 
 // attrGetter is satisfied by tfsdk.Plan, tfsdk.State and tfsdk.Config.
 type attrGetter interface {
@@ -108,6 +127,15 @@ func objectTypeValidator(allowed ...client.ObjectType) validator.String {
 		vals[i] = string(a)
 	}
 	return stringvalidator.OneOf(vals...)
+}
+
+// merchantArchivedHint turns Ledger's merchant_archived refusal (a new assignment to an archived merchant) into advice;
+// any other error is returned unchanged with the given summary.
+func merchantArchivedHint(err error, summary string) (string, string) {
+	if client.HasCode(err, client.CodeMerchantArchived) {
+		return "The merchant is archived", err.Error() + " An archived merchant takes no new assignment: unarchive it first (archived = false on ledger_merchant), then apply again."
+	}
+	return summary, err.Error()
 }
 
 func versionConflictDetail(err error) string {

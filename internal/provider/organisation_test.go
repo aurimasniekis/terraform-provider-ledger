@@ -57,8 +57,8 @@ func TestOrganisationTypeNames(t *testing.T) {
 		mk().Metadata(ctx, datasource.MetadataRequest{ProviderTypeName: "ledger"}, &m)
 		ds = append(ds, m.TypeName)
 	}
-	wantRes := "ledger_category ledger_label ledger_bucket ledger_category_assignment ledger_label_assignment ledger_bucket_member"
-	wantDS := "ledger_category ledger_label ledger_bucket ledger_categories ledger_labels ledger_buckets ledger_object_organisation ledger_bucket_members"
+	wantRes := "ledger_category ledger_label ledger_bucket ledger_category_assignment ledger_label_assignment ledger_bucket_member ledger_merchant ledger_merchant_alias"
+	wantDS := "ledger_category ledger_label ledger_bucket ledger_categories ledger_labels ledger_buckets ledger_object_organisation ledger_bucket_members ledger_merchant ledger_merchants"
 	if got := strings.Join(res, " "); got != wantRes {
 		t.Errorf("resources %q", got)
 	}
@@ -87,6 +87,32 @@ func TestNameValidator(t *testing.T) {
 	nameValidator().ValidateString(context.Background(), validator.StringRequest{ConfigValue: types.StringUnknown()}, &resp)
 	if resp.Diagnostics.HasError() {
 		t.Error("an unknown name must pass validation")
+	}
+}
+
+func TestMerchantNameValidatorRefusesNonNFC(t *testing.T) {
+	cases := []struct {
+		name string
+		ok   bool
+	}{
+		{"Caf\xc3\xa9 Lidl", true},   // composed (NFC)
+		{"Cafe\xcc\x81 Lidl", false}, // e + combining acute: Ledger would store the NFC form
+		{"Lidl", true},
+	}
+	for _, tc := range cases {
+		var resp validator.StringResponse
+		merchantNameValidator().ValidateString(context.Background(), validator.StringRequest{ConfigValue: types.StringValue(tc.name)}, &resp)
+		if got := !resp.Diagnostics.HasError(); got != tc.ok {
+			t.Errorf("%q: valid=%v want %v", tc.name, got, tc.ok)
+		}
+	}
+}
+
+func TestAliasKey(t *testing.T) {
+	for in, want := range map[string]string{"LIDL": "lidl", "Cafe\xcc\x81  Lidl": "caf\xc3\xa9 lidl", " a\tb ": "a b"} {
+		if got := aliasKey(in); got != want {
+			t.Errorf("aliasKey(%q) = %q, want %q", in, got, want)
+		}
 	}
 }
 

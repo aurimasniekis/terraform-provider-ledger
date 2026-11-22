@@ -144,12 +144,13 @@ func (c *Client) DeleteDefinition(ctx context.Context, kind DefinitionKind, id s
 // ObjectType names what a category, label or bucket is assigned to.
 type ObjectType string
 
-// Object types the provider assigns to. Merchants are not included: they are keyed by a provisional name key in the
-// pinned API (ADR-0053 of go-ledger) and need an administrator-only grant; see ADR-0004 of this repository.
+// Object types the provider assigns to. A merchant is addressed by its record identifier (ADR-0058 of go-ledger); its
+// organisation routes need the administrator-only merchants grants, and a merchant is never a bucket member.
 const (
 	ObjectTransaction ObjectType = "transaction"
 	ObjectCommitment  ObjectType = "commitment"
 	ObjectAccount     ObjectType = "account"
+	ObjectMerchant    ObjectType = "merchant"
 )
 
 // Actor says who made an assignment.

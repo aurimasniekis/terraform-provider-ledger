@@ -30,7 +30,7 @@ output "rent_category_origin" {
 ### Required
 
 - `object_id` (String) The Ledger identifier of the object.
-- `object_type` (String) The kind of object: `transaction`, `commitment` or `account`. Merchants are not supported yet: Ledger identifies them by a provisional name key that is expected to become a record identifier. Changing it replaces the resource.
+- `object_type` (String) The kind of object: `transaction`, `commitment`, `account` or `merchant`. A merchant is addressed by its record identifier (`ledger_merchant`) and needs an API token with the administrator-only `merchants:read` and `merchants:write` grants, because merchant names derive from bank text; an archived merchant takes no new assignment. Buckets never hold merchants. Changing it replaces the resource.
 
 ### Read-Only
 
