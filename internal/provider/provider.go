@@ -175,11 +175,11 @@ func (p *ledgerProvider) Resources(context.Context) []func() resource.Resource {
 }
 
 func (p *ledgerProvider) DataSources(context.Context) []func() datasource.DataSource {
-	return []func() datasource.DataSource{
+	return append([]func() datasource.DataSource{
 		NewCategoryDataSource, NewLabelDataSource, NewBucketDataSource,
 		NewCategoriesDataSource, NewLabelsDataSource, NewBucketsDataSource,
 		NewObjectOrganisationDataSource, NewBucketMembersDataSource,
 		NewMerchantDataSource, NewMerchantsDataSource,
 		NewCommitmentDataSource, NewCommitmentsDataSource,
-	}
+	}, reportDataSources()...)
 }
