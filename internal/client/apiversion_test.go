@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 )
 
@@ -53,6 +54,38 @@ func TestCheckAPIVersionReadsThePrefixedDocument(t *testing.T) {
 	}
 }
 
+// A transient answer on the version GET is retried like any other read (ADR-0009), so one 503 does not fail Configure.
+func TestCheckAPIVersionRetriesTransientAnswers(t *testing.T) {
+	var n atomic.Int32
+	c, waits := retryClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if n.Add(1) == 1 {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
+		_, _ = w.Write([]byte(`{"info":{"version":"1.0.0"}}`))
+	}))
+	got, err := c.CheckAPIVersion(context.Background())
+	if err != nil || got.Served != "1.0.0" {
+		t.Fatalf("got %+v, %v; want 1.0.0 accepted after one retry", got, err)
+	}
+	if n.Load() != 2 || len(*waits) != 1 {
+		t.Fatalf("attempts=%d waits=%v; want 2 attempts and one wait", n.Load(), *waits)
+	}
+}
+
+// A version GET that keeps failing gives up after the read retry limit and reports the last answer.
+func TestCheckAPIVersionGivesUpAfterMaxRetries(t *testing.T) {
+	var n atomic.Int32
+	c, waits := retryClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		n.Add(1)
+		w.WriteHeader(http.StatusBadGateway)
+	}))
+	_, err := c.CheckAPIVersion(context.Background())
+	if err == nil || !strings.Contains(err.Error(), "HTTP 502") || n.Load() != MaxRetries+1 || len(*waits) != MaxRetries {
+		t.Fatalf("err=%v attempts=%d waits=%v", err, n.Load(), *waits)
+	}
+}
+
 func TestCheckAPIVersionFailuresAreErrorsWithoutTheToken(t *testing.T) {
 	const token = "api-version-failure-token"
 	cases := []struct {
@@ -63,6 +96,8 @@ func TestCheckAPIVersionFailuresAreErrorsWithoutTheToken(t *testing.T) {
 		{"not found", http.NotFound, "HTTP 404"},
 		{"not JSON", func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte("<html>")) }, "not valid JSON"},
 		{"no version", func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte(`{"info":{}}`)) }, "no usable info.version"},
+		{"version not a string", func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte(`{"info":{"version":1}}`)) }, "no usable info.version"},
+		{"info not an object", func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte(`{"info":5}`)) }, "no usable info.version"},
 		{"major 2", func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte(`{"info":{"version":"2.0.0"}}`)) }, "major 2"},
 	}
 	for _, tc := range cases {
