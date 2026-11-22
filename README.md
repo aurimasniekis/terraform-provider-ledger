@@ -25,7 +25,7 @@ print it in diagnostics. See [docs/index.md](docs/index.md) for the generated re
 
 ## Development
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). `make check` runs formatting, vet, lint, offline tests, the build, the docs
+See [CONTRIBUTING.md](CONTRIBUTING.md). `make check` runs formatting, vet, lint, tests, the build, the docs
 drift check and the workflow policy.
 
 ## Licence

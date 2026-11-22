@@ -6,6 +6,8 @@ version: 2
 before:
   hooks:
     - go mod tidy
+    # Licence texts of the modules in the binary (ADR-0001 section 9); shipped by the archives below.
+    - sh scripts/generate-notices.sh
 
 builds:
   - env:
@@ -36,6 +38,10 @@ builds:
 archives:
   - formats: [zip]
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - LICENSE
+      - README.md
+      - THIRD_PARTY_NOTICES.txt
 
 checksum:
   extra_files:

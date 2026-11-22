@@ -17,7 +17,7 @@ FIXTURES=scripts/testdata/permission-policy
 # a comma, a closing brace or the end of the line.
 WRITE_SCOPE=':[[:space:]]*["'"'"']?write(-all)?["'"'"']?([[:space:],}]|$)'
 
-# The one allowed exception (ADR-0002): release.yml may grant exactly `contents: write`, as a job-level permission
+# The one allowed exception (ADR-0003): release.yml may grant exactly `contents: write`, as a job-level permission
 # (six spaces of indent), to create the GitHub release. Any other write scope in it is still rejected. A file that is
 # not a release workflow gets no exception. has_write_scope FILE [release]: pass "release" to apply the exception.
 has_write_scope() {

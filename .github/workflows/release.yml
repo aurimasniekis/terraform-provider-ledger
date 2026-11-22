@@ -1,5 +1,5 @@
 # Provider release on version tags: GoReleaser builds, checksums and signs; the Registry reads the GitHub release.
-# Publishing the provider on the Terraform Registry is a manual operator step after the first signed tag (docs/releasing.md).
+# Publishing the provider on the Terraform Registry is a manual operator step after the first signed tag (RELEASING.md).
 # Every action is pinned by commit SHA; the version in the trailing comment is the release it names.
 name: release
 

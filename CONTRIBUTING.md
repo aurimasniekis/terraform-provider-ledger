@@ -28,7 +28,7 @@ Use [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/)
 ## Rules that always apply
 
 - No secrets, tokens, real bank data or real personal finance records in the repository, commits, logs, test fixtures or Terraform state examples. Fixtures are synthetic.
-- Tests run offline. Unit tests use fakes (an `httptest` server or an injected function); acceptance tests (`TF_ACC=1`, not run by `make check`) only talk to a local Ledger test server, never a bank.
+- Tests need no network services at runtime (modules may download on a cold cache). Unit tests use fakes (an `httptest` server or an injected function); acceptance tests (`TF_ACC=1`, not run by `make check`) only talk to a local Ledger test server, never a bank.
 - Provider conventions (precedence, secrets, errors) are in [ADR-0001](docs/decisions/0001-provider-conventions.md).
 
 ## Licence
