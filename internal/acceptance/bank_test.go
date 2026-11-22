@@ -44,7 +44,7 @@ data "ledger_bank_institutions" "none" {
   country     = "LT"
 }
 `,
-				ExpectError: regexp.MustCompile(`(?s)No such bank\s+application|Listing the bank institutions failed`),
+				ExpectError: regexp.MustCompile(`No such bank application`),
 			},
 		},
 	})
