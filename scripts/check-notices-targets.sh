@@ -5,8 +5,8 @@
 # not mirrored in the other fails here.
 #
 #   scripts/check-notices-targets.sh [ARTIFACTS]  compare TARGETS with the Binary entries of ARTIFACTS (default dist/artifacts.json)
-#   scripts/check-notices-targets.sh --self-test  check the comparison: a snapshot-shaped list of TARGETS passes, and the same list
-#                                                 minus one platform is rejected
+#   scripts/check-notices-targets.sh --self-test  check the comparison: a snapshot-shaped list of TARGETS passes, the same list
+#                                                 minus one platform is rejected, and the same list plus one platform is rejected
 set -eu
 
 WORK=$(mktemp -d)
@@ -35,10 +35,13 @@ compare() {
 }
 
 # self_test: built from the live TARGETS list, so it stays valid when the list changes. The list as snapshot-shaped
-# Binary entries must pass; the same list without its first platform must be rejected with the drift exit code (1).
+# Binary entries must pass; the same list without its first platform (a platform missing from the build) and the same
+# list with an extra platform (a platform only in the build) must each be rejected with the drift exit code (1).
 self_test() {
   sh scripts/generate-notices.sh --targets | jq -R -s '[split("\n")[] | select(. != "") | split("/") | {type: "Binary", goos: .[0], goarch: .[1]}]' > "$WORK/match.json"
   jq '.[1:]' "$WORK/match.json" > "$WORK/drift.json"
+  # "fixture/none" is not a Go platform, so it can never be in TARGETS.
+  jq '. + [{type: "Binary", goos: "fixture", goarch: "none"}]' "$WORK/match.json" > "$WORK/extra.json"
   status=0
   if compare "$WORK/match.json" > /dev/null; then
     echo "ok: the TARGETS list passes"
@@ -52,6 +55,14 @@ self_test() {
     echo "ok: the TARGETS list without its first platform is rejected"
   else
     echo "::error::expected drift to be detected (exit 1), got exit $rc"
+    status=1
+  fi
+  rc=0
+  compare "$WORK/extra.json" > /dev/null 2>&1 || rc=$?
+  if [ "$rc" -eq 1 ]; then
+    echo "ok: the TARGETS list with an extra platform in the build is rejected"
+  else
+    echo "::error::expected an extra platform in the build to be detected (exit 1), got exit $rc"
     status=1
   fi
   return "$status"
