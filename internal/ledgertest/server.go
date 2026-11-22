@@ -66,6 +66,22 @@ func Start(t *testing.T) *Server {
 		t.Fatal(err)
 	}
 
+	p := prepare(t, pin, src)
+	return startLoop(t, p, startAttempts)
+}
+
+// prepared is a built ledger binary, an isolated environment and a bootstrapped root token, ready to serve.
+type prepared struct {
+	pin     Pin
+	bin     string
+	dir     string
+	baseEnv []string
+	token   string
+}
+
+// prepare builds the pinned Ledger into a temporary directory, and creates the first root token with the CLI.
+func prepare(t *testing.T, pin Pin, src string) prepared {
+	t.Helper()
 	dir := t.TempDir()
 	bin := filepath.Join(dir, "ledger")
 	build := exec.Command("go", "build", "-trimpath", "-o", bin, "./cmd/ledger")
@@ -80,11 +96,10 @@ func Start(t *testing.T) *Server {
 		"LEDGER_KEK_VALUE="+syntheticKEK,
 		"LEDGER_DATABASE_PATH="+filepath.Join(dir, "ledger.db"),
 	)
-	env := baseEnv
 
 	// The first token comes from the CLI, before the server starts (it holds the database lock).
 	tokenCmd := exec.Command(bin, "token", "create", "--create", "administrator", "--root", "--name", "acceptance", "acceptance-admin")
-	tokenCmd.Env = env
+	tokenCmd.Env = baseEnv
 	tokenCmd.Dir = dir
 	var stdout, stderr bytes.Buffer
 	tokenCmd.Stdout, tokenCmd.Stderr = &stdout, &stderr
@@ -96,33 +111,45 @@ func Start(t *testing.T) *Server {
 	if token == "" {
 		t.Fatal("ledger token create printed no token")
 	}
+	return prepared{pin: pin, bin: bin, dir: dir, baseEnv: baseEnv, token: token}
+}
 
-	// freeAddr reserves a port and releases it before the server binds it, so another process (for example a second
-	// acceptance run on the same machine) can take it in between. launch detects that, and Start retries on new ports.
-	var lastErr error
-	for attempt := 1; attempt <= startAttempts; attempt++ {
-		listen, err := freeAddr()
+// pickAddr reserves loopback addresses for the server. It is a variable so a test can make a port collision certain.
+var pickAddr = freeAddr
+
+// startLoop runs launch on fresh ports up to attempts times. freeAddr reserves a port and releases it before the server
+// binds it, so another process (for example a second acceptance run on the same machine) can take it in between.
+// launch detects that and the loop retries. The output of every failed attempt is kept in the final failure.
+func startLoop(t *testing.T, p prepared, attempts int) *Server {
+	t.Helper()
+	var failures []error
+	for attempt := 1; attempt <= attempts; attempt++ {
+		listen, err := pickAddr()
 		if err != nil {
 			t.Fatal(err)
 		}
-		mgmt, err := freeAddr()
+		mgmt, err := pickAddr()
 		if err != nil {
 			t.Fatal(err)
 		}
-		env := append(append([]string{}, baseEnv...), "LEDGER_HTTP_LISTEN="+listen, "LEDGER_HTTP_MANAGEMENT_LISTEN="+mgmt)
+		env := append(append([]string{}, p.baseEnv...), "LEDGER_HTTP_LISTEN="+listen, "LEDGER_HTTP_MANAGEMENT_LISTEN="+mgmt)
 		base := "http://" + listen
-		served, logs, err := launch(t, bin, dir, env, base, token, attempt)
+		served, logs, err := launch(t, p.bin, p.dir, env, base, p.token, attempt)
 		if err != nil {
-			lastErr = fmt.Errorf("attempt %d: %w\nserver output:\n%s", attempt, err, logs)
+			failures = append(failures, fmt.Errorf("attempt %d on %s: %w\nserver output:\n%s", attempt, listen, err, logs))
+			// A server that never became ready while still running has a problem that another port will not fix.
+			if errors.Is(err, errNotReady) {
+				break
+			}
 			t.Logf("ledger serve attempt %d on %s failed, retrying on new ports: %v", attempt, listen, err)
 			continue
 		}
-		if err := CheckCompatible(pin, served); err != nil {
+		if err := CheckCompatible(p.pin, served); err != nil {
 			t.Fatal(err)
 		}
-		return &Server{URL: base, Token: client.Secret(token), Pin: pin, APIVersion: served}
+		return &Server{URL: base, Token: client.Secret(p.token), Pin: p.pin, APIVersion: served}
 	}
-	t.Fatalf("ledger serve did not start after %d attempts: %v", startAttempts, lastErr)
+	t.Fatalf("ledger serve did not start (%d of %d attempts):\n%v", len(failures), attempts, errors.Join(failures...))
 	return nil
 }
 
@@ -248,6 +275,9 @@ func freeAddr() (string, error) {
 	return l.Addr().String(), nil
 }
 
+// errNotReady marks a server that was still running but never answered within readyTimeout.
+var errNotReady = errors.New("the server was not ready")
+
 // waitForAPI polls the public OpenAPI document until the server answers and returns its info.version.
 func waitForAPI(base string, exited <-chan struct{}) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), readyTimeout)
@@ -261,7 +291,7 @@ func waitForAPI(base string, exited <-chan struct{}) (string, error) {
 		if v, err := fetchAPIVersion(ctx, base); err == nil {
 			return v, nil
 		} else if ctx.Err() != nil {
-			return "", fmt.Errorf("timed out after %s: %w", readyTimeout, err)
+			return "", fmt.Errorf("%w after %s: %w", errNotReady, readyTimeout, err)
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
