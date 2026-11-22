@@ -3,14 +3,14 @@
 page_title: "ledger Provider"
 description: |-
   Manage a Ledger https://github.com/aurimasniekis/go-ledger server through its Management API.
-  Each setting can also come from the environment. Precedence (first one set wins, and an unusable source is an error rather than a fall-through): endpoint attribute, then LEDGER_ENDPOINT; token attribute, then token_file attribute, then LEDGER_TOKEN, then LEDGER_TOKEN_FILE. Blank values count as unset. On configuration the provider reads the API version the server serves and refuses a server on an unsupported major version (ADR-0008).
+  Each setting can also come from the environment. Precedence (first one set wins, and an unusable source is an error rather than a fall-through): endpoint attribute, then LEDGER_ENDPOINT; token attribute, then token_file attribute, then LEDGER_TOKEN, then LEDGER_TOKEN_FILE. Blank values count as unset. On configuration the provider reads the API version the server serves and refuses a server on an unsupported major version.
 ---
 
 # ledger Provider
 
 Manage a [Ledger](https://github.com/aurimasniekis/go-ledger) server through its Management API.
 
-Each setting can also come from the environment. **Precedence** (first one set wins, and an unusable source is an error rather than a fall-through): `endpoint` attribute, then `LEDGER_ENDPOINT`; `token` attribute, then `token_file` attribute, then `LEDGER_TOKEN`, then `LEDGER_TOKEN_FILE`. Blank values count as unset. On configuration the provider reads the API version the server serves and refuses a server on an unsupported major version (ADR-0008).
+Each setting can also come from the environment. **Precedence** (first one set wins, and an unusable source is an error rather than a fall-through): `endpoint` attribute, then `LEDGER_ENDPOINT`; `token` attribute, then `token_file` attribute, then `LEDGER_TOKEN`, then `LEDGER_TOKEN_FILE`. Blank values count as unset. On configuration the provider reads the API version the server serves and refuses a server on an unsupported major version.
 
 ## Example Usage
 

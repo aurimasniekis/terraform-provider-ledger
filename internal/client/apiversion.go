@@ -93,7 +93,8 @@ func JudgeAPIVersion(served string) (APIVersionCheck, error) {
 }
 
 // servedAPIVersion fetches the OpenAPI document. The request goes through the authenticated client, which only sends
-// it to the configured host; the document itself needs no token.
+// it to the configured host; the document itself needs no token. It is a GET, so send applies the read retry policy
+// (ADR-0009) as it does for every other read.
 func (c *Client) servedAPIVersion(ctx context.Context) (string, error) {
 	u := c.BaseURL()
 	u.Path = strings.TrimRight(u.Path, "/") + APIPrefix + openAPIPath
@@ -102,7 +103,7 @@ func (c *Client) servedAPIVersion(ctx context.Context) (string, error) {
 		return "", errors.New("building the API version request failed")
 	}
 	req.Header.Set("Accept", "application/json")
-	resp, err := c.http.Do(req)
+	resp, err := c.send(ctx, req)
 	if err != nil {
 		// *url.Error repeats the URL; keep the message short and token-free, as do() does.
 		var ue *url.Error
@@ -116,13 +117,20 @@ func (c *Client) servedAPIVersion(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("the Ledger server answered HTTP %d for GET %s; check that the endpoint is a Ledger server",
 			resp.StatusCode, APIPrefix+openAPIPath)
 	}
-	var doc struct {
-		Info struct {
-			Version string `json:"version"`
-		} `json:"info"`
-	}
+	var doc any
 	if err := json.NewDecoder(io.LimitReader(resp.Body, maxOpenAPIBytes)).Decode(&doc); err != nil {
 		return "", errors.New("the Ledger server's OpenAPI document is not valid JSON")
 	}
-	return doc.Info.Version, nil
+	// Valid JSON whose info.version is missing or not a string (a number, say) has no usable version: that is
+	// errNoVersion, not a JSON error.
+	version := ""
+	if m, ok := doc.(map[string]any); ok {
+		if info, ok := m["info"].(map[string]any); ok {
+			version, _ = info["version"].(string)
+		}
+	}
+	if version == "" {
+		return "", errNoVersion
+	}
+	return version, nil
 }

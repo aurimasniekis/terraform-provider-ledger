@@ -57,7 +57,7 @@ func (p *ledgerProvider) Schema(_ context.Context, _ provider.SchemaRequest, res
 			"is an error rather than a fall-through): `endpoint` attribute, then `" + EnvEndpoint + "`; " +
 			"`token` attribute, then `token_file` attribute, then `" + EnvToken + "`, then `" + EnvTokenFile + "`. " +
 			"Blank values count as unset. On configuration the provider reads the API version the server serves and refuses a " +
-			"server on an unsupported major version (ADR-0008).",
+			"server on an unsupported major version.",
 		Attributes: map[string]schema.Attribute{
 			"endpoint": schema.StringAttribute{
 				Optional: true,
