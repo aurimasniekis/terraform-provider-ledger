@@ -4,10 +4,11 @@
 # as a before hook and ships the file in every archive.
 #
 #   scripts/generate-notices.sh [OUTPUT]     (default: THIRD_PARTY_NOTICES.txt in the working directory)
+#   scripts/generate-notices.sh --targets    (print the TARGETS below, one goos/goarch per line, and exit)
 #
 # It fails when a module has no directory or no licence file, or when the Go distribution has no LICENSE, so an
-# incomplete notices file is never written. A module's NOTICE files (NOTICE, NOTICE.txt, ...) are included after its
-# licence file, because some licences require them to be passed on.
+# incomplete notices file is never written. A module's NOTICE files (NOTICE, NOTICE.txt or NOTICE.md) are included
+# after its licence file, because some licences require them to be passed on.
 set -eu
 
 OUT=${1:-THIRD_PARTY_NOTICES.txt}
@@ -16,12 +17,20 @@ trap 'rm -rf "$WORK"' EXIT
 
 # The module list is the union over every GoReleaser target (goos/goarch matrix and ignore rules in .goreleaser.yml),
 # not just the host platform, so a dependency that only some targets compile in is still listed. Today the lists are
-# identical for every target. Keep this list in step with .goreleaser.yml; darwin/386 and darwin/arm are not Go targets,
-# so the matrix leaves them out (go tool dist list).
+# identical for every target. Keep this list in step with .goreleaser.yml: make release-targets-check fails when the two
+# differ. darwin/386, darwin/arm and windows/arm are not Go targets in the toolchain go.mod pins (go tool dist list), so
+# this list omits them and .goreleaser.yml excludes them.
 TARGETS="freebsd/386 freebsd/amd64 freebsd/arm freebsd/arm64 \
 linux/386 linux/amd64 linux/arm linux/arm64 \
 darwin/amd64 darwin/arm64 \
 windows/386 windows/amd64 windows/arm64"
+
+if [ "${1:-}" = "--targets" ]; then
+  for target in $TARGETS; do
+    echo "$target"
+  done
+  exit 0
+fi
 
 # Modules in the main package's dependency graph: the ones linked into the binary (test-only modules are left out).
 # CGO_ENABLED=0 matches the build (see the build target in .goreleaser.yml and the Makefile).
@@ -79,7 +88,7 @@ section() {
     fi
     section "$path $version ($(basename "$lic"))" "$lic"
 
-    find "$dir" -maxdepth 1 -type f -iname 'NOTICE*' | sort > "$WORK/notice-files"
+    find "$dir" -maxdepth 1 -type f \( -iname NOTICE -o -iname NOTICE.txt -o -iname NOTICE.md \) | sort > "$WORK/notice-files"
     while read -r notice; do
       section "$path $version ($(basename "$notice"))" "$notice"
     done < "$WORK/notice-files"

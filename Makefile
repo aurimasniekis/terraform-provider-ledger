@@ -8,7 +8,7 @@ BINARY   := $(BIN_DIR)/terraform-provider-ledger
 VERSION  ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS  := -X main.version=$(VERSION)
 
-.PHONY: help acceptance fmt fmt-check vet lint test build docs docs-check workflow-policy release-check release-snapshot check clean
+.PHONY: help acceptance fmt fmt-check vet lint test build docs docs-check workflow-policy release-check release-snapshot release-targets-check check clean
 
 help: ## list the targets
 	@grep -E '^[a-zA-Z_-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  %-14s %s\n", $$1, $$2}'
@@ -55,6 +55,10 @@ release-check: ## validate .goreleaser.yml
 
 release-snapshot: ## offline unsigned snapshot build into dist/ (no tag, no publish, no signing; needs no secrets)
 	GPG_FINGERPRINT=unsigned $(GORELEASER) release --snapshot --clean --skip=sign,publish
+
+release-targets-check: ## fail when the notices TARGETS list differs from the binaries of the snapshot in dist/ (run after release-snapshot)
+	sh scripts/check-notices-targets.sh --self-test
+	sh scripts/check-notices-targets.sh dist/artifacts.json
 
 check: fmt-check vet lint test build docs-check workflow-policy ## everything the checks need, in order
 

@@ -29,7 +29,8 @@ builds:
       - arm
       - arm64
     ignore:
-      # Go has no darwin/386 or darwin/arm target (go tool dist list); "go build" rejects both.
+      # Not Go targets in the toolchain go.mod pins (go tool dist list lists none of these); "go build" rejects them.
+      # scripts/generate-notices.sh TARGETS must match this matrix: make release-targets-check.
       - goos: darwin
         goarch: "386"
       - goos: darwin
