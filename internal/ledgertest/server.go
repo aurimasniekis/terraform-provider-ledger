@@ -79,7 +79,8 @@ func Start(t *testing.T) *Server {
 	if err != nil {
 		t.Fatal(err)
 	}
-	env := isolatedEnv(
+	env := isolatedEnv(dir,
+		"LEDGER_ENV_FILE="+filepath.Join(dir, "no-such.env"),
 		"LEDGER_HTTP_LISTEN="+listen,
 		"LEDGER_HTTP_MANAGEMENT_LISTEN="+mgmt,
 		"LEDGER_KEK_VALUE="+syntheticKEK,
@@ -89,6 +90,7 @@ func Start(t *testing.T) *Server {
 	// The first token comes from the CLI, before the server starts (it holds the database lock).
 	tokenCmd := exec.Command(bin, "token", "create", "--create", "administrator", "--root", "--name", "acceptance", "acceptance-admin")
 	tokenCmd.Env = env
+	tokenCmd.Dir = dir
 	var stdout, stderr bytes.Buffer
 	tokenCmd.Stdout, tokenCmd.Stderr = &stdout, &stderr
 	if err := tokenCmd.Run(); err != nil {
@@ -107,6 +109,8 @@ func Start(t *testing.T) *Server {
 	}
 	serve := exec.Command(bin, "serve")
 	serve.Env = env
+	serve.Dir = dir
+	dieWithParent(serve)
 	serve.Stdout, serve.Stderr = logFile, logFile
 	if err := serve.Start(); err != nil {
 		t.Fatalf("starting ledger serve: %v", err)
@@ -159,9 +163,10 @@ func git(dir string, args ...string) (string, error) {
 }
 
 // isolatedEnv is the environment of the CLI and the server: no inherited LEDGER_* settings, credentials or proxies,
+// HOME inside the temporary directory, and LEDGER_ENV_FILE (passed by the caller) naming a file that does not exist,
 // so nothing from the developer's own Ledger can leak in and nothing is configured to reach a network service.
-func isolatedEnv(extra ...string) []string {
-	env := []string{"PATH=" + os.Getenv("PATH"), "HOME=" + os.TempDir(), "TZ=UTC"}
+func isolatedEnv(home string, extra ...string) []string {
+	env := []string{"PATH=" + os.Getenv("PATH"), "HOME=" + home, "TZ=UTC"}
 	return append(env, extra...)
 }
 

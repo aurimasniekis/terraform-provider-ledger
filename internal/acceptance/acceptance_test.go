@@ -9,6 +9,8 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -34,6 +36,26 @@ func get(t *testing.T, s *ledgertest.Server, path, bearer string) (int, []byte) 
 		t.Fatal(err)
 	}
 	return resp.StatusCode, body
+}
+
+// TestIgnoresWorkingDirectoryDotEnv checks that a .env in the caller's directory cannot reach the Ledger under test.
+func TestIgnoresWorkingDirectoryDotEnv(t *testing.T) {
+	if src := os.Getenv(ledgertest.EnvSource); src != "" {
+		abs, err := filepath.Abs(src)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Setenv(ledgertest.EnvSource, abs)
+	}
+	t.Chdir(t.TempDir())
+	poison := "LEDGER_LOG_LEVEL=not-a-level\nLEDGER_HTTP_LISTEN=256.256.256.256:1\nLEDGER_KEK_VALUE=poisoned\n"
+	if err := os.WriteFile(".env", []byte(poison), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	s := ledgertest.Start(t)
+	if code, _ := get(t, s, "/api/v1/me", s.Token.Reveal()); code != http.StatusOK {
+		t.Fatalf("GET /api/v1/me: HTTP %d", code)
+	}
 }
 
 // TestLocalLedger starts the pinned Ledger once and checks what every resource test relies on.

@@ -23,11 +23,11 @@ vet: ## go vet
 lint: ## golangci-lint with .golangci.yml
 	$(GOLANGCI) run ./...
 
-test: ## offline unit tests with the race detector (acceptance tests need TF_ACC=1 and are not run here)
+test: ## unit tests (no network services) with the race detector (acceptance tests need TF_ACC=1 and are not run here)
 	$(GO) test -race ./...
 
 # Acceptance tests run the client against a real local Ledger built from a go-ledger checkout at the commit pinned in
-# internal/ledgertest/ledger.pin. Fully offline once go-ledger's modules are in the module cache. See docs/decisions/0002.
+# internal/ledgertest/ledger.pin. No network services at runtime; go-ledger's modules may download on a cold cache. See docs/decisions/0002.
 acceptance: ## acceptance tests against a local Ledger; needs LEDGER_ACC_SOURCE=<go-ledger checkout at the pinned commit>
 	@test -n "$(LEDGER_ACC_SOURCE)" || { echo "set LEDGER_ACC_SOURCE to a go-ledger checkout at the commit in internal/ledgertest/ledger.pin"; exit 1; }
 	TF_ACC=1 LEDGER_ACC_SOURCE="$(LEDGER_ACC_SOURCE)" $(GO) test -count=1 -timeout 15m ./internal/acceptance/...

@@ -91,7 +91,7 @@ jobs:
         uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: go.mod
-      - name: Offline unit tests with the race detector
+      - name: Unit tests with the race detector
         run: make test
 
   go-build:
@@ -129,7 +129,7 @@ jobs:
         run: make docs-check
 
   acceptance:
-    name: acceptance (local Ledger, offline)
+    name: acceptance (local Ledger, no network services)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
