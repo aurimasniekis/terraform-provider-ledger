@@ -8,7 +8,8 @@
 #
 # It fails when a module has no directory or no licence file, or when the Go distribution has no LICENSE, so an
 # incomplete notices file is never written. A module's NOTICE files (NOTICE, NOTICE.txt or NOTICE.md) are included
-# after its licence file, because some licences require them to be passed on.
+# after its licence file, because some licences require them to be passed on. Any other NOTICE* file in a module is
+# left out with a warning on stderr: its licence terms may still have to be passed on.
 set -eu
 
 OUT=${1:-THIRD_PARTY_NOTICES.txt}
@@ -89,6 +90,10 @@ section() {
     section "$path $version ($(basename "$lic"))" "$lic"
 
     find "$dir" -maxdepth 1 -type f \( -iname NOTICE -o -iname NOTICE.txt -o -iname NOTICE.md \) | sort > "$WORK/notice-files"
+    find "$dir" -maxdepth 1 -type f -iname 'NOTICE*' | sort > "$WORK/notice-all"
+    comm -23 "$WORK/notice-all" "$WORK/notice-files" | while read -r skipped; do
+      echo "warning: $path $version: skipped $(basename "$skipped"), which is not NOTICE, NOTICE.txt or NOTICE.md; check whether its licence terms must be passed on" >&2
+    done
     while read -r notice; do
       section "$path $version ($(basename "$notice"))" "$notice"
     done < "$WORK/notice-files"
