@@ -4,12 +4,15 @@ page_title: "ledger_user Resource - ledger"
 subcategory: ""
 description: |-
   A Ledger user account: a username, an optional display name and a role. Ledger never deletes users: destroying this resource disables the user (their sessions and tokens stop working, audit history and token ownership stay) and removes it from state. Credentials are separate: set a password with ledger_user_password (write-only). User routes need an API token with the users:read and users:write grants. Creating or promoting an administrator, re-enabling a disabled administrator, and changing the root (first) account need the root token of the root account; any other token is refused with root_token_required.
+  If creating a user with disabled = true fails at the disable step, the user exists and is enabled, and the resource is tainted. Do not apply again to replace it: the replacement disables the old user and then fails, because the username is taken. Recover with terraform untaint ledger_user.<name> and apply, which disables the user in place; or terraform state rm ledger_user.<name>, terraform import it by identifier, and apply.
   Import with the identifier: terraform import ledger_user.example <id>.
 ---
 
 # ledger_user (Resource)
 
 A Ledger user account: a username, an optional display name and a role. **Ledger never deletes users**: destroying this resource **disables** the user (their sessions and tokens stop working, audit history and token ownership stay) and removes it from state. Credentials are separate: set a password with `ledger_user_password` (write-only). User routes need an API token with the `users:read` and `users:write` grants. Creating or promoting an administrator, re-enabling a disabled administrator, and changing the root (first) account need the **root token** of the root account; any other token is refused with `root_token_required`.
+
+If creating a user with `disabled = true` fails at the disable step, the user exists and is enabled, and the resource is tainted. Do not apply again to replace it: the replacement disables the old user and then fails, because the username is taken. Recover with `terraform untaint ledger_user.<name>` and apply, which disables the user in place; or `terraform state rm ledger_user.<name>`, `terraform import` it by identifier, and apply.
 
 Import with the identifier: `terraform import ledger_user.example <id>`.
 

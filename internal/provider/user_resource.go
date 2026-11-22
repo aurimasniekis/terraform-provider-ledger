@@ -70,7 +70,7 @@ func userHint(err error) string {
 	case client.IsVersionConflict(err):
 		return versionConflictDetail(err)
 	case client.HasCode(err, client.CodeRootTokenRequired):
-		return err.Error() + " This operation needs the root token of the root account (create it on the Ledger host with `ledger token create --create administrator --root`); " +
+		return err.Error() + " This operation needs the root token of the root account (create it on the Ledger host, with `ledger serve` stopped, using `ledger token create --root <root-account-username>`); " +
 			"configure the provider with that token for this change."
 	case client.HasCode(err, client.CodeConflict):
 		return err.Error() + " Ledger refuses a change that leaves no enabled administrator, and a username that is already taken."
@@ -87,7 +87,12 @@ func (r *userResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 		MarkdownDescription: "A Ledger user account: a username, an optional display name and a role. " +
 			"**Ledger never deletes users**: destroying this resource **disables** the user (their sessions and tokens stop working, audit history and token ownership stay) " +
 			"and removes it from state. Credentials are separate: set a password with `ledger_user_password` (write-only). " +
-			userGrantNote + "\n\nImport with the identifier: `terraform import ledger_user.example <id>`.",
+			userGrantNote + "\n\n" +
+			"If creating a user with `disabled = true` fails at the disable step, the user exists and is enabled, and the resource is tainted. " +
+			"Do not apply again to replace it: the replacement disables the old user and then fails, because the username is taken. " +
+			"Recover with `terraform untaint ledger_user.<name>` and apply, which disables the user in place; or `terraform state rm ledger_user.<name>`, " +
+			"`terraform import` it by identifier, and apply.\n\n" +
+			"Import with the identifier: `terraform import ledger_user.example <id>`.",
 		Attributes: map[string]schema.Attribute{
 			"id": schema.StringAttribute{Computed: true, MarkdownDescription: "The Ledger identifier (a ULID).",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()}},

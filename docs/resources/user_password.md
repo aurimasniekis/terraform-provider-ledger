@@ -48,7 +48,7 @@ resource "ledger_user_password" "reader" {
 
 ### Optional
 
-- `password_wo_version` (Number) A number you raise to set the password again. Terraform stores it (it is not secret) and calls Ledger when it changes.
+- `password_wo_version` (Number) A number you raise to set the password again. Terraform stores it (it is not secret) and calls Ledger when it changes. Optional, but without it the password can only be set again by replacing the resource. Removing it after it was set counts as a change: the password is sent again, which ends that user's sessions.
 
 ### Read-Only
 
