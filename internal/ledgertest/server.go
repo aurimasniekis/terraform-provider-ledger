@@ -28,6 +28,10 @@ const (
 	// syntheticKEK is a throwaway key-encryption key for a throwaway database. It protects nothing.
 	syntheticKEK = "acceptance-only-not-a-secret-0123456789abcdef"
 	readyTimeout = 60 * time.Second
+	// startAttempts bounds how often Start retries on new ports when the listener turns out not to be ours.
+	startAttempts = 3
+	// exitGrace is how long VerifyOurs waits for a process that lost the port race to be seen exiting.
+	exitGrace = 300 * time.Millisecond
 )
 
 // Server is a running local Ledger.
@@ -71,21 +75,12 @@ func Start(t *testing.T) *Server {
 		t.Fatalf("building ledger from %s: %v\n%s", pin.Commit, err, out)
 	}
 
-	listen, err := freeAddr()
-	if err != nil {
-		t.Fatal(err)
-	}
-	mgmt, err := freeAddr()
-	if err != nil {
-		t.Fatal(err)
-	}
-	env := isolatedEnv(dir,
+	baseEnv := isolatedEnv(dir,
 		"LEDGER_ENV_FILE="+filepath.Join(dir, "no-such.env"),
-		"LEDGER_HTTP_LISTEN="+listen,
-		"LEDGER_HTTP_MANAGEMENT_LISTEN="+mgmt,
 		"LEDGER_KEK_VALUE="+syntheticKEK,
 		"LEDGER_DATABASE_PATH="+filepath.Join(dir, "ledger.db"),
 	)
+	env := baseEnv
 
 	// The first token comes from the CLI, before the server starts (it holds the database lock).
 	tokenCmd := exec.Command(bin, "token", "create", "--create", "administrator", "--root", "--name", "acceptance", "acceptance-admin")
@@ -102,7 +97,40 @@ func Start(t *testing.T) *Server {
 		t.Fatal("ledger token create printed no token")
 	}
 
-	logPath := filepath.Join(dir, "serve.log")
+	// freeAddr reserves a port and releases it before the server binds it, so another process (for example a second
+	// acceptance run on the same machine) can take it in between. launch detects that, and Start retries on new ports.
+	var lastErr error
+	for attempt := 1; attempt <= startAttempts; attempt++ {
+		listen, err := freeAddr()
+		if err != nil {
+			t.Fatal(err)
+		}
+		mgmt, err := freeAddr()
+		if err != nil {
+			t.Fatal(err)
+		}
+		env := append(append([]string{}, baseEnv...), "LEDGER_HTTP_LISTEN="+listen, "LEDGER_HTTP_MANAGEMENT_LISTEN="+mgmt)
+		base := "http://" + listen
+		served, logs, err := launch(t, bin, dir, env, base, token, attempt)
+		if err != nil {
+			lastErr = fmt.Errorf("attempt %d: %w\nserver output:\n%s", attempt, err, logs)
+			t.Logf("ledger serve attempt %d on %s failed, retrying on new ports: %v", attempt, listen, err)
+			continue
+		}
+		if err := CheckCompatible(pin, served); err != nil {
+			t.Fatal(err)
+		}
+		return &Server{URL: base, Token: client.Secret(token), Pin: pin, APIVersion: served}
+	}
+	t.Fatalf("ledger serve did not start after %d attempts: %v", startAttempts, lastErr)
+	return nil
+}
+
+// launch starts one ledger serve and returns the served API version once the server is ours: it answers, is still
+// running and accepts the bootstrap token. On failure it stops the process and returns its output.
+func launch(t *testing.T, bin, dir string, env []string, base, token string, attempt int) (string, []byte, error) {
+	t.Helper()
+	logPath := filepath.Join(dir, fmt.Sprintf("serve-%d.log", attempt))
 	logFile, err := os.Create(logPath)
 	if err != nil {
 		t.Fatal(err)
@@ -128,16 +156,55 @@ func Start(t *testing.T) *Server {
 		_ = logFile.Close()
 	})
 
-	base := "http://" + listen
 	served, err := waitForAPI(base, exited)
+	if err == nil {
+		err = VerifyOurs(context.Background(), base, token, exited)
+	}
 	if err != nil {
+		_ = serve.Process.Signal(os.Interrupt)
+		select {
+		case <-exited:
+		case <-time.After(10 * time.Second):
+			_ = serve.Process.Kill()
+			<-exited
+		}
 		logs, _ := os.ReadFile(logPath)
-		t.Fatalf("ledger serve did not become ready: %v\nserver output:\n%s", err, logs)
+		return "", logs, err
 	}
-	if err := CheckCompatible(pin, served); err != nil {
-		t.Fatal(err)
+	return served, nil, nil
+}
+
+// VerifyOurs fails unless the server at base is the one this harness started: its process has not exited (a server
+// that lost the race for the port exits, while another Ledger answers the readiness probe) and it accepts the
+// bootstrap token on GET /api/v1/me. A different Ledger on the same port would answer 401.
+func VerifyOurs(ctx context.Context, base, token string, exited <-chan struct{}) error {
+	// A process that failed to bind may still be exiting while the other server answers; give it a moment to be seen.
+	select {
+	case <-exited:
+		return errors.New("the server process exited (its port was probably taken by another process)")
+	case <-time.After(exitGrace):
 	}
-	return &Server{URL: base, Token: client.Secret(token), Pin: pin, APIVersion: served}
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, base+"/api/v1/me", nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("GET /api/v1/me: %w", err)
+	}
+	_ = resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("GET /api/v1/me with the bootstrap token: HTTP %d (the listener is probably another Ledger)", resp.StatusCode)
+	}
+	select {
+	case <-exited:
+		return errors.New("the server process exited after answering")
+	default:
+	}
+	return nil
 }
 
 // verifyCommit fails unless the checkout at dir is exactly at want and has no local changes to tracked files. env names
