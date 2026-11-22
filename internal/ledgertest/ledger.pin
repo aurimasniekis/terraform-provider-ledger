@@ -1,5 +1,5 @@
 # The Ledger build the acceptance harness runs against (docs/decisions/0002).
 # commit: a commit of aurimasniekis/go-ledger (reachable from its work branch).
 # api_version: info.version of the OpenAPI document that commit serves at /api/v1/openapi.json.
-commit=760bba6de4267e97f3b7d66117b228336cae8d08
+commit=b595e3bbdc2ce6ec255da38d6039406ef229c511
 api_version=1.0.0

@@ -19,7 +19,7 @@ Import with `<object_type>/<object_id>`.
 # The person's category for one commitment (single-valued: one resource per object).
 resource "ledger_category_assignment" "rent" {
   object_type = "commitment"
-  object_id   = "01JD3Y4C8V9M2Q7W5R6T0XZBNA" # a commitment, account or transaction identifier
+  object_id   = "01JD3Y4C8V9M2Q7W5R6T0XZBNA" # a commitment, account, transaction or merchant identifier
   category_id = ledger_category.rent.id
 }
 
@@ -27,6 +27,13 @@ resource "ledger_category_assignment" "rent" {
 resource "ledger_category_assignment" "no_category" {
   object_type = "account"
   object_id   = "01JD3Y4C8V9M2Q7W5R6T0XZBNB"
+}
+
+# A merchant takes a category too (administrator-only merchants grants; an archived merchant takes no new assignment).
+resource "ledger_category_assignment" "grocer" {
+  object_type = "merchant"
+  object_id   = ledger_merchant.grocer.id
+  category_id = ledger_category.groceries.id
 }
 ```
 
@@ -36,7 +43,7 @@ resource "ledger_category_assignment" "no_category" {
 ### Required
 
 - `object_id` (String) The Ledger identifier of the object. Changing it replaces the resource.
-- `object_type` (String) The kind of object: `transaction`, `commitment` or `account`. Merchants are not supported yet: Ledger identifies them by a provisional name key that is expected to become a record identifier. Changing it replaces the resource.
+- `object_type` (String) The kind of object: `transaction`, `commitment`, `account` or `merchant`. A merchant is addressed by its record identifier (`ledger_merchant`) and needs an API token with the administrator-only `merchants:read` and `merchants:write` grants, because merchant names derive from bank text; an archived merchant takes no new assignment. Buckets never hold merchants. Changing it replaces the resource.
 
 ### Optional
 
