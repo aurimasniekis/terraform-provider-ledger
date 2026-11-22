@@ -2,10 +2,14 @@ package ledgertest
 
 import (
 	"context"
+	"errors"
+	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 func meServer(t *testing.T, token string) *httptest.Server {
@@ -57,4 +61,37 @@ func TestVerifyOurs(t *testing.T) {
 			t.Fatal("want an error for an exited process")
 		}
 	})
+}
+
+// A process that exits while a request hangs must be reported as exited, not as a readiness timeout: startLoop retries
+// on new ports only for the exit. The listener accepts the connection (the process "exits" then) and never answers.
+func TestWaitForAPIReportsExitWhenRequestHangs(t *testing.T) {
+	old := readyTimeout
+	readyTimeout = 300 * time.Millisecond
+	t.Cleanup(func() { readyTimeout = old })
+
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = ln.Close() })
+	exited := make(chan struct{})
+	go func() {
+		conn, err := ln.Accept()
+		if err != nil {
+			return
+		}
+		close(exited)
+		// Hold the connection without answering until the client gives up.
+		_, _ = io.Copy(io.Discard, conn)
+		_ = conn.Close()
+	}()
+
+	_, err = waitForAPI("http://"+ln.Addr().String(), exited)
+	if err == nil || !strings.Contains(err.Error(), "the server exited") {
+		t.Fatalf("want a server-exited error, got %v", err)
+	}
+	if errors.Is(err, errNotReady) {
+		t.Fatalf("an exited server must not be reported as not ready: %v", err)
+	}
 }

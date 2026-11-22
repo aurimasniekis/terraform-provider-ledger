@@ -27,12 +27,14 @@ const (
 
 	// syntheticKEK is a throwaway key-encryption key for a throwaway database. It protects nothing.
 	syntheticKEK = "acceptance-only-not-a-secret-0123456789abcdef"
-	readyTimeout = 60 * time.Second
 	// startAttempts bounds how often Start retries on new ports when the listener turns out not to be ours.
 	startAttempts = 3
 	// exitGrace is how long VerifyOurs waits for a process that lost the port race to be seen exiting.
 	exitGrace = 300 * time.Millisecond
 )
+
+// readyTimeout bounds how long waitForAPI waits for a running server to answer. A variable so a test can shorten it.
+var readyTimeout = 60 * time.Second
 
 // Server is a running local Ledger.
 type Server struct {
@@ -195,6 +197,7 @@ func launch(t *testing.T, bin, dir string, env []string, base, token string, att
 			_ = serve.Process.Kill()
 			<-exited
 		}
+		_ = logFile.Close()
 		logs, _ := os.ReadFile(logPath)
 		return "", logs, err
 	}
@@ -291,6 +294,13 @@ func waitForAPI(base string, exited <-chan struct{}) (string, error) {
 		if v, err := fetchAPIVersion(ctx, base); err == nil {
 			return v, nil
 		} else if ctx.Err() != nil {
+			// The process may have exited while the request hung, for example when another listener took the port,
+			// accepted the connection and never answered. Report the exit: only then does startLoop retry on new ports.
+			select {
+			case <-exited:
+				return "", errors.New("the server exited")
+			default:
+			}
 			return "", fmt.Errorf("%w after %s: %w", errNotReady, readyTimeout, err)
 		}
 		time.Sleep(100 * time.Millisecond)
