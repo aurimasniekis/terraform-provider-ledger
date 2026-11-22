@@ -77,7 +77,7 @@ func (r *definitionResource) archiveChildrenNote() string {
 func (r *definitionResource) reassignNote() string {
 	if r.typeName == "bucket" {
 		return "Every membership moved to the target is recorded as added by the person deleting this bucket, because bucket memberships " +
-			"carry no origin. "
+			"carry no origin (under Terraform, the API token's user). An object already in the target bucket keeps its existing membership. "
 	}
 	return "Assignments the person made (origin user) stay the person's; assignments made by a rule or a model keep their origin. "
 }
