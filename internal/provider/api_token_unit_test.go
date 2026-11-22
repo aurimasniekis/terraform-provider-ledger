@@ -327,8 +327,7 @@ func TestAPITokenRootAndExpiry(t *testing.T) {
 }
 
 func TestAPITokenValidationAndRootTokenPrerequisite(t *testing.T) {
-	f, factories := newFakeTokens(t)
-	_ = f
+	_, factories := newFakeTokens(t)
 	resource.UnitTest(t, resource.TestCase{
 		ProtoV6ProviderFactories: factories,
 		Steps: []resource.TestStep{
