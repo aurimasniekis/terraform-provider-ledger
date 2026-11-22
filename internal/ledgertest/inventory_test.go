@@ -93,7 +93,7 @@ func TestCoverageInventoryAgainstLedger(t *testing.T) {
 		t.Skip("set LEDGER_INVENTORY_SOURCE to a go-ledger checkout at the commit named in docs/decisions/0005-coverage-inventory.md (make inventory-check)")
 	}
 	idx := committedInventory(t)
-	if err := verifyCommit(src, idx.Commit); err != nil {
+	if err := verifyCommit("LEDGER_INVENTORY_SOURCE", src, idx.Commit); err != nil {
 		t.Fatal(err)
 	}
 	doc, err := os.ReadFile(filepath.Join(src, "internal", "httpapi", "openapi.yaml"))

@@ -11,9 +11,9 @@ Ledger generates itself, a documented state exception).
 
 This inventory covers **every operation of the Management API as served by go-ledger `work` at commit
 `35f80acbfbd9441560e645b00d1d160db7297885`** (API 1.0.0, **131 operations on 96 paths**; the count is of the OpenAPI document,
-`internal/httpapi/openapi.yaml`, which is the contract). The acceptance harness pin (`internal/ledgertest/ledger.pin`) is a
-separate, older commit that serves 118 operations on 86 paths (it lacks the merchant, `/merchants/sources` and adjustment
-paid and unpaid operations); the pin moves with the merchant resources (ADR-0007). The inventory is re-derived against `work`,
+`internal/httpapi/openapi.yaml`, which is the contract). The acceptance harness pin (`internal/ledgertest/ledger.pin`) is commit
+`b595e3bbdc2ce6ec255da38d6039406ef229c511`, which serves the same 131 operations on 96 paths. The pin moves only by a reviewed
+change to that file (ADR-0002). The inventory is re-derived against `work`,
 not against the pin, so that it never lags what the API serves. Each object is mapped to a resource and data source, to a read-only data source, or to an exception with its
 reason. Status values: **done** (in this repository), **follow-up** (a resource or data source still to build, sized for one
 worker in the list at the end), **blocked** (needs an API that go-ledger does not serve yet), **exception** (not managed
@@ -65,7 +65,7 @@ descoped**: when its endpoints land in the OpenAPI document, the provider resour
 | `GET /auth/methods` (public) | `ledger_auth_methods` data source (public information). | follow-up F5 |
 | `GET /merchants/sources` | `ledger_merchant_sources` data source: the vocabulary of merchant sources. | follow-up F5 |
 | `GET /transactions/{id}/merchant` | **Exception.** The merchant annotation of one bank transaction, a bank fact whose operand a configuration cannot find (no transaction list or search endpoint). Merchants themselves are read through `ledger_merchant` data sources. | exception |
-| `GET /openapi.json`, `GET /openapi.yaml` | Used by the provider itself: the compatibility check that the supported API major version is served (D18), not a resource. | follow-up F7 |
+| `GET /openapi.json`, `GET /openapi.yaml` | Used by the provider itself: `GET /openapi.json` is the compatibility check in `Configure` (D18, ADR-0008); `GET /openapi.yaml` is not read. Neither is a resource. | done (F7) for `/openapi.json`; exception for `/openapi.yaml` |
 
 ### Exceptions, with the reason
 
@@ -111,8 +111,7 @@ descoped**: when its endpoints land in the OpenAPI document, the provider resour
      need the root token of the root account (D32); other tokens get `root_token_required`.
    - A token acts within its owner's current role and grants, so the provider's token must hold the grants for the objects
      it manages (`commitments:write`, `organisation:write`, `users:write`, `tokens:write`, ...).
-5. Merchants are covered by ADR-0007 (PR #8): until that merges, the merchant rows are done on its branch and the inventory
-   names them so that the claim stays checkable the day both land.
+5. Merchants are covered by ADR-0007 (merged in PR #8). The merchant rows in the mapping above name the resources that cover them.
 6. **Operation index and validator.** The index at the end has one row per operation of the OpenAPI document. `make
    inventory-check` (set `LEDGER_INVENTORY_SOURCE` to a go-ledger checkout at the commit above) fails when an operation is
    missing from the index, when the index names one the document does not serve, or when the counts disagree. `make test` runs the
@@ -124,11 +123,11 @@ descoped**: when its endpoints land in the OpenAPI document, the provider resour
 - **F2** `ledger_api_token` (state exception, replace-on-change) and `ledger_api_tokens`; root-token prerequisite tests.
 - **F3** `ledger_deferral_plan`, `ledger_deferral_plan_adjustment`, history data source, and a way to find an occurrence.
 - **F4** `ledger_manual_payment` and `ledger_occurrence_status_override`.
-- **F5** Read-only data sources: me, grants, auth methods, exchange rates and status, occurrences, monthly summary, outlook,
+- **F5** Read-only data sources: `ledger_merchant_sources` (`GET /merchants/sources`), me, grants, auth methods, exchange rates and status, occurrences, monthly summary, outlook,
   payment matches, audit entries.
 - **F6** Read-only bank data sources: applications, institutions, connections (freshness and status visible).
 - **F7** Compatibility check in `Configure`: read `info.version` from the served OpenAPI document, fail on an unsupported
-  major, warn on a newer minor (the harness already checks the pin; the provider does not yet).
+  major, warn on a newer minor. **Done** (ADR-0008); the harness checks the exact pin (ADR-0002).
 - **F8** Client reliability: idempotent-read retries (D17, at most 3 with backoff) and timeouts, shared by all resources.
 - **B1** Settings, rules, provider and model settings, authentication options, bank integration settings, Pulse: **blocked on
   go-ledger API endpoints**. Control should ask for the API per group (rules; provider/model settings; app and planning
@@ -141,8 +140,8 @@ operation; the status is the first word (`done`, `follow-up` or `exception`).
 
 | Operation | Mapping | Status |
 | --- | --- | --- |
-| `GET /openapi.json` | provider's own API compatibility check, not a resource | follow-up F7 |
-| `GET /openapi.yaml` | provider's own API compatibility check, not a resource | follow-up F7 |
+| `GET /openapi.json` | read by the provider in `Configure` (compatibility check, ADR-0008), not a resource | done (F7) |
+| `GET /openapi.yaml` | the same document in YAML; the provider reads only the JSON one, not a resource | exception (not read by the provider) |
 | `GET /me` | data source `ledger_me` | follow-up F5 |
 | `GET /grants` | data source `ledger_grants` | follow-up F5 |
 | `GET /audit` | data source `ledger_audit_entries` | follow-up F5 |

@@ -58,7 +58,7 @@ func Start(t *testing.T) *Server {
 	if src == "" {
 		t.Fatalf("%s is set but %s is not: point it at a go-ledger checkout at commit %s", EnvAcc, EnvSource, pin.Commit)
 	}
-	if err := verifyCommit(src, pin.Commit); err != nil {
+	if err := verifyCommit(EnvSource, src, pin.Commit); err != nil {
 		t.Fatal(err)
 	}
 
@@ -140,17 +140,18 @@ func Start(t *testing.T) *Server {
 	return &Server{URL: base, Token: client.Secret(token), Pin: pin, APIVersion: served}
 }
 
-// verifyCommit fails unless the checkout at dir is exactly at want and has no local changes to tracked files.
-func verifyCommit(dir, want string) error {
+// verifyCommit fails unless the checkout at dir is exactly at want and has no local changes to tracked files. env names
+// the environment variable that points at dir, so the message tells the person which setting to fix.
+func verifyCommit(env, dir, want string) error {
 	got, err := git(dir, "rev-parse", "HEAD")
 	if err != nil {
-		return fmt.Errorf("%s=%s is not a git checkout: %w", EnvSource, dir, err)
+		return fmt.Errorf("%s=%s is not a git checkout: %w", env, dir, err)
 	}
 	if got != want {
-		return fmt.Errorf("%s is at %s, but the pin is %s: check out the pinned commit", EnvSource, got, want)
+		return fmt.Errorf("%s is at %s, but it must be at %s: check out that commit", env, got, want)
 	}
 	if dirty, err := git(dir, "status", "--porcelain", "--untracked-files=no"); err != nil || dirty != "" {
-		return fmt.Errorf("%s has local changes to tracked files; the build would not be the pinned commit", EnvSource)
+		return fmt.Errorf("%s has local changes to tracked files; the build would not be the commit %s", env, want)
 	}
 	return nil
 }
